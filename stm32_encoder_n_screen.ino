@@ -140,7 +140,7 @@ void refreshDisplay() {
     value,
     enabled,
     voltageMonitor.getVoltageHundredths(),
-    voltageMonitor.getBatteryPercentage()
+    voltageMonitor.getBatteryBars()
   );
 }
 

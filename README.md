@@ -7,7 +7,7 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 - Rotary encoder-based throttle control from 0 to 100
 - Button press toggles the ESC on/off
 - Smooth ESC ramping to avoid abrupt throttle changes
-- OLED status display showing the current throttle, enable state, voltage, and a 1–5 segment battery indicator
+- OLED status display showing the current throttle, enable state, voltage, and a 1–5 segment battery indicator; bars drop immediately and require a 0.04 V per-cell recovery margin to rise
 - Average voltage per cell for a 3-cell series battery, displayed with two decimal places
 - Auto-display sleep after inactivity
 - Built-in ESC startup sequence for safe arming
@@ -69,7 +69,7 @@ Install these libraries in the Arduino IDE or PlatformIO environment:
 - `stm32_encoder_n_screen.ino` — main application sketch
 - `DisplayController.h` — OLED display initialization and rendering
 - `EncoderController.h` — rotary encoder and button input logic
-- `VoltageMonitor.h` — voltage measurement and battery percentage estimation
+- `VoltageMonitor.h` — voltage measurement, battery percentage estimation, and battery bar calculation
 
 ## License
 

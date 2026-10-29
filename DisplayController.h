@@ -36,12 +36,12 @@ public:
     int value,
     bool enabled,
     int voltageHundredths,
-    int batteryPercentage
+    int batteryBars
   ) {
     this->value = value;
     this->enabled = enabled;
     this->voltageHundredths = voltageHundredths;
-    this->batteryPercentage = batteryPercentage;
+    this->batteryBars = batteryBars;
     drawIfReady();
   }
 
@@ -72,10 +72,10 @@ private:
   static const uint32_t I2C_CLOCK_HZ = 400000;
   static const uint32_t I2C_TIMEOUT_US = 25000;
   static const unsigned long RECOVERY_INTERVAL = 1000;
-  static const int16_t STATUS_BADGE_X = 2;
-  static const int16_t STATUS_RECT_Y = 0;
-  static const int16_t STATUS_BADGE_WIDTH = 28;
-  static const int16_t STATUS_BADGE_HEIGHT = 16;
+  static const int16_t STATUS_BADGE_X = 4;
+  static const int16_t STATUS_RECT_Y = 1;
+  static const int16_t STATUS_BADGE_WIDTH = 24;
+  static const int16_t STATUS_BADGE_HEIGHT = 14;
   static const int16_t VALUE_BAR_X = 2;
   static const int16_t VALUE_BAR_Y = 46;
   static const int16_t BATTERY_X = 2;
@@ -86,7 +86,7 @@ private:
   int value = 14;
   bool enabled = false;
   int voltageHundredths = 0;
-  int batteryPercentage = 0;
+  int batteryBars = 0;
   bool initialized = false;
   bool sleeping = false;
   unsigned long lastRecoveryAttempt = 0;
@@ -236,20 +236,7 @@ private:
     uint16_t valueWidth;
     uint16_t valueHeight;
 
-    display.setTextSize(2);
-    display.getTextBounds(
-      valueText,
-      0,
-      0,
-      &boundsX,
-      &boundsY,
-      &valueWidth,
-      &valueHeight
-    );
-    uint8_t valueTextSize =
-      valueWidth + 8 <= display.width() ? 2 : 1;
-
-    display.setTextSize(valueTextSize);
+    display.setTextSize(1);
     display.getTextBounds(
       valueText,
       0,
@@ -299,17 +286,14 @@ private:
   }
 
   void drawBatteryIndicator() {
-    const int clampedPercentage = batteryPercentage < 0
+    const int clampedBars = batteryBars < 0
       ? 0
-      : (batteryPercentage > 100 ? 100 : batteryPercentage);
-    const int filledSegments = clampedPercentage == 100
-      ? 5
-      : (clampedPercentage * 6) / 100;
+      : (batteryBars > 5 ? 5 : batteryBars);
 
     display.drawRect(BATTERY_X, BATTERY_Y, 25, 10, SSD1306_WHITE);
     display.drawRect(BATTERY_X + 25, BATTERY_Y + 3, 3, 4, SSD1306_WHITE);
 
-    for (int segment = 0; segment < filledSegments; ++segment) {
+    for (int segment = 0; segment < clampedBars; ++segment) {
       display.fillRect(
         BATTERY_X + 2 + segment * 4,
         BATTERY_Y + 2,

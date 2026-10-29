@@ -11,6 +11,7 @@ public:
   void begin() {
     filteredVoltageMillivolts = readVoltageMillivolts();
     batteryPercentage = estimateBatteryPercentage(filteredVoltageMillivolts);
+    batteryBars = estimateBatteryBars(batteryPercentage);
     lastReadTime = millis();
   }
 
@@ -24,7 +25,7 @@ public:
     const long sampleMillivolts = readVoltageMillivolts();
     filteredVoltageMillivolts =
       (4L * filteredVoltageMillivolts + sampleMillivolts + 2L) / 5L;
-    batteryPercentage = estimateBatteryPercentage(filteredVoltageMillivolts);
+    updateBatteryEstimate();
     return true;
   }
 
@@ -34,6 +35,14 @@ public:
 
   int getBatteryPercentage() const {
     return batteryPercentage;
+  }
+
+  int getBatteryBars() const {
+    return batteryBars;
+  }
+
+  static int estimateBatteryBars(int percentage) {
+    return percentage == 100 ? 5 : (percentage * 6) / 100;
   }
 
   // Approximate resting-voltage curve for a typical 4.2 V Li-ion cell.
@@ -75,13 +84,32 @@ public:
 
 private:
   static const unsigned long READ_INTERVAL = 150;
+  static const long BATTERY_BAR_RECOVERY_MILLIVOLTS = 40;
   static const long ADC_TO_CELL_MILLIVOLTS_NUMERATOR = 223800;
   static const long ADC_TO_CELL_MILLIVOLTS_DENOMINATOR = 27621;
 
   int pin;
   long filteredVoltageMillivolts = 0;
   int batteryPercentage = 0;
+  int batteryBars = 0;
   unsigned long lastReadTime = 0;
+
+  void updateBatteryEstimate() {
+    batteryPercentage = estimateBatteryPercentage(filteredVoltageMillivolts);
+    const int estimatedBars = estimateBatteryBars(batteryPercentage);
+    if (estimatedBars < batteryBars) {
+      batteryBars = estimatedBars;
+      return;
+    }
+
+    const int recoveredPercentage = estimateBatteryPercentage(
+      filteredVoltageMillivolts - BATTERY_BAR_RECOVERY_MILLIVOLTS
+    );
+    const int recoveredBars = estimateBatteryBars(recoveredPercentage);
+    if (recoveredBars > batteryBars) {
+      batteryBars = recoveredBars;
+    }
+  }
 
   long readVoltageMillivolts() const {
     const long rawReading = analogRead(pin);
