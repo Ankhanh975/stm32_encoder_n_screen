@@ -2,6 +2,8 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Servo.h>
+#include "EncoderController.h"
+#include "VoltageMonitor.h"
 
 // =========================
 // Hardware configuration
@@ -26,109 +28,6 @@ Adafruit_SSD1306 display(
   &Wire,
   OLED_RESET
 );
-
-// =========================
-// Encoder controller
-// =========================
-
-class EncoderController {
-public:
-  EncoderController(int clkPin, int dtPin, int switchPin)
-    : clkPin(clkPin),
-      dtPin(dtPin),
-      switchPin(switchPin) {}
-
-  void begin() {
-    pinMode(clkPin, INPUT_PULLUP);
-    pinMode(dtPin, INPUT_PULLUP);
-    pinMode(switchPin, INPUT_PULLUP);
-
-    lastEncoderState = readEncoderState();
-    lastButtonReading = HIGH;
-    stableButtonState = HIGH;
-    lastDebounceTime = 0;
-    transitionCount = 0;
-  }
-
-  int readRotation() {
-    const uint8_t currentState = readEncoderState();
-    int direction = 0;
-
-    if (currentState != lastEncoderState) {
-      direction = transitionDirection(lastEncoderState, currentState);
-
-      if (direction != 0) {
-        transitionCount += direction;
-
-        if (transitionCount >= 2 || transitionCount <= -2) {
-          direction = transitionCount > 0 ? 1 : -1;
-          transitionCount = 0;
-        } else {
-          direction = 0;
-        }
-      }
-
-      lastEncoderState = currentState;
-    }
-
-    return direction;
-  }
-
-  bool readButtonPressed() {
-    const bool reading = digitalRead(switchPin);
-    bool pressed = false;
-
-    if (reading != lastButtonReading) {
-      lastDebounceTime = millis();
-    }
-
-    if (millis() - lastDebounceTime > DEBOUNCE_TIME &&
-        reading != stableButtonState) {
-      stableButtonState = reading;
-      pressed = stableButtonState == LOW;
-    }
-
-    lastButtonReading = reading;
-    return pressed;
-  }
-
-private:
-  static const unsigned long DEBOUNCE_TIME = 30;
-
-  int clkPin;
-  int dtPin;
-  int switchPin;
-  uint8_t lastEncoderState = 0;
-  int transitionCount = 0;
-  bool lastButtonReading = HIGH;
-  bool stableButtonState = HIGH;
-  unsigned long lastDebounceTime = 0;
-
-  uint8_t readEncoderState() const {
-    return (digitalRead(clkPin) << 1) | digitalRead(dtPin);
-  }
-
-  int transitionDirection(
-    uint8_t previousState,
-    uint8_t currentState
-  ) const {
-    if ((previousState == 3 && currentState == 1) ||
-        (previousState == 1 && currentState == 0) ||
-        (previousState == 0 && currentState == 2) ||
-        (previousState == 2 && currentState == 3)) {
-      return 1;
-    }
-
-    if ((previousState == 1 && currentState == 3) ||
-        (previousState == 0 && currentState == 1) ||
-        (previousState == 2 && currentState == 0) ||
-        (previousState == 3 && currentState == 2)) {
-      return -1;
-    }
-
-    return 0;
-  }
-};
 
 // =========================
 // ESC controller
@@ -226,9 +125,10 @@ public:
     return true;
   }
 
-  void render(int value, bool enabled) {
+  void render(int value, bool enabled, int voltageHundredths) {
     this->value = value;
     this->enabled = enabled;
+    this->voltageHundredths = voltageHundredths;
     draw();
   }
 
@@ -249,6 +149,7 @@ private:
   Adafruit_SSD1306 &display;
   int value = 14;
   bool enabled = false;
+  int voltageHundredths = 0;
 
   void showArming() {
     display.clearDisplay();
@@ -288,8 +189,22 @@ private:
     drawCenteredText(enabled ? "ON" : "OFF", 1, 24);
 
     char valueText[5];
-    snprintf(valueText, sizeof(valueText), "%d", value);
-    drawCenteredText(valueText, value >= 100 ? 1 : 2, 52);
+    if (value == 100) {
+      snprintf(valueText, sizeof(valueText), "00");
+    } else {
+      snprintf(valueText, sizeof(valueText), "%d", value);
+    }
+    drawCenteredText(valueText, 2, 52);
+
+    char voltageText[7];
+    snprintf(
+      voltageText,
+      sizeof(voltageText),
+      "%d.%02d",
+      voltageHundredths / 100,
+      voltageHundredths % 100
+    );
+    drawCenteredText(voltageText, 1, 82);
 
     display.drawRect(
       STATUS_RECT_X,
@@ -310,6 +225,7 @@ private:
 EncoderController encoder(CLK_PIN, DT_PIN, SW_PIN);
 EscController escController(ESC_PIN, MIN_PWM, MAX_PWM);
 DisplayController displayController(display);
+VoltageMonitor voltageMonitor(A0);
 
 const unsigned long DISPLAY_SLEEP_TIMEOUT = 45000;
 
@@ -335,7 +251,11 @@ int valueStep(int direction) {
   }
 
 void refreshDisplay() {
-  displayController.render(value, enabled);
+  displayController.render(
+    value,
+    enabled,
+    voltageMonitor.getVoltageHundredths()
+  );
 }
 
 void registerInput() {
@@ -364,11 +284,18 @@ void setup() {
     while (1);
   }
 
+  voltageMonitor.begin();
   refreshDisplay();
   lastInputTime = millis();
 }
 
 void loop() {
+  if (voltageMonitor.update()) {
+    if (!displayAsleep) {
+      refreshDisplay();
+    }
+  }
+
   const int rotation = encoder.readRotation();
 
   if (rotation != 0 && !displayAsleep) {

@@ -1,6 +1,6 @@
-# STM32 Encoder + OLED ESC Controller
+# Arduino Nano Encoder + OLED ESC Controller
 
-This project is a small Arduino sketch for controlling an electronic speed controller (ESC) from a rotary encoder and a compact OLED display. It is designed for an STM32-based Arduino-compatible board and uses a 128x32 SSD1306 display to show the current throttle and enable state.
+This project is a small Arduino sketch for controlling an electronic speed controller (ESC) from a rotary encoder and a compact OLED display. It is designed for a classic 5 V Arduino Nano (ATmega328P) and uses a 128x32 SSD1306 display to show the current throttle, enable state, and measured voltage.
 
 ## Features
 
@@ -8,6 +8,7 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 - Button press toggles the ESC on/off
 - Smooth ESC ramping to avoid abrupt throttle changes
 - OLED status display showing the current throttle and enable state
+- Average voltage per cell for a 3-cell series battery, displayed with two decimal places
 - Auto-display sleep after inactivity
 - Built-in ESC startup sequence for safe arming
 
@@ -15,10 +16,11 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 
 The sketch expects the following hardware:
 
-- STM32 board running the Arduino core
+- Classic 5 V Arduino Nano (ATmega328P)
 - SSD1306 128x32 I2C OLED display
 - Rotary encoder with CLK, DT, and SW pins
 - ESC connected to a PWM signal pin
+- A 4:1 voltage divider with its output connected to A0 and its low side connected to common ground
 - Common 5V/GND power distribution
 
 ## Pin mapping
@@ -29,12 +31,13 @@ The sketch expects the following hardware:
 | Encoder DT | 9 |
 | Encoder SW | 10 |
 | ESC signal | 3 |
+| Voltage divider output | A0 |
 | OLED SDA | SDA |
 | OLED SCL | SCL |
 | OLED GND | GND |
 | OLED VCC | 3.3V or 5V depending on module |
 
-Note: The sketch uses the default Arduino I2C pins for the OLED and hardware digital pins for the encoder and ESC, so confirm the STM32 board variant matches the selected pin numbers.
+Note: The sketch converts the raw Nano ADC reading directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A0 at or below 5 V; the divider must keep the pin within that limit. If hardware or calibration changes, update the conversion constants in `VoltageMonitor.h`.
 
 ## Libraries
 
@@ -47,11 +50,11 @@ Install these libraries in the Arduino IDE or PlatformIO environment:
 
 ## Operation
 
-1. Upload the sketch to the STM32 board.
+1. Upload the sketch to the Arduino Nano.
 2. Power the ESC and display.
 3. Rotate the encoder to adjust the throttle value.
 4. Press the encoder button to arm/disarm the ESC.
-5. The OLED displays the power state (`ON`/`OFF`) and the active value.
+5. The OLED displays the power state (`ON`/`OFF`), the active value, and the measured voltage.
 
 ## Notes
 
@@ -62,7 +65,9 @@ Install these libraries in the Arduino IDE or PlatformIO environment:
 
 ## File structure
 
-- `stm32_encoder_n_screen.ino` — complete Arduino sketch
+- `stm32_encoder_n_screen.ino` — main application sketch
+- `EncoderController.h` — rotary encoder and button input logic
+- `VoltageMonitor.h` — voltage measurement and battery percentage estimation
 
 ## License
 
