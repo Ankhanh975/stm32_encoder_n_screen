@@ -9,7 +9,7 @@ public:
     : pin(pin) {}
 
   void begin() {
-    voltageHundredths = readVoltageHundredths();
+    filteredVoltageMillivolts = readVoltageMillivolts();
     lastReadTime = millis();
   }
 
@@ -20,12 +20,14 @@ public:
     }
 
     lastReadTime = now;
-    voltageHundredths = readVoltageHundredths();
+    const long sampleMillivolts = readVoltageMillivolts();
+    filteredVoltageMillivolts =
+      (5L * filteredVoltageMillivolts + 3L * sampleMillivolts + 4L) / 8L;
     return true;
   }
 
   int getVoltageHundredths() const {
-    return voltageHundredths;
+    return (filteredVoltageMillivolts + 5) / 10;
   }
 
   // Approximate resting-voltage curve for a typical 4.2 V Li-ion cell.
@@ -61,19 +63,19 @@ public:
 
 private:
   static const unsigned long READ_INTERVAL = 150;
-  static const long ADC_TO_CELL_HUNDREDTHS_NUMERATOR = 22380;
-  static const long ADC_TO_CELL_HUNDREDTHS_DENOMINATOR = 27621;
+  static const long ADC_TO_CELL_MILLIVOLTS_NUMERATOR = 223800;
+  static const long ADC_TO_CELL_MILLIVOLTS_DENOMINATOR = 27621;
 
   int pin;
-  int voltageHundredths = 0;
+  long filteredVoltageMillivolts = 0;
   unsigned long lastReadTime = 0;
 
-  int readVoltageHundredths() const {
+  long readVoltageMillivolts() const {
     const long rawReading = analogRead(pin);
     const long scaledReading =
-      rawReading * ADC_TO_CELL_HUNDREDTHS_NUMERATOR;
-    return (scaledReading + ADC_TO_CELL_HUNDREDTHS_DENOMINATOR / 2) /
-           ADC_TO_CELL_HUNDREDTHS_DENOMINATOR;
+      rawReading * ADC_TO_CELL_MILLIVOLTS_NUMERATOR;
+    return (scaledReading + ADC_TO_CELL_MILLIVOLTS_DENOMINATOR / 2) /
+           ADC_TO_CELL_MILLIVOLTS_DENOMINATOR;
   }
 };
 
