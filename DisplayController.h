@@ -45,13 +45,13 @@ public:
 private:
   static const uint8_t OLED_ADDRESS = 0x3C;
   static const int16_t STATUS_BADGE_X = 2;
-  static const int16_t STATUS_RECT_Y = 18;
+  static const int16_t STATUS_RECT_Y = 0;
   static const int16_t STATUS_BADGE_WIDTH = 28;
   static const int16_t STATUS_BADGE_HEIGHT = 16;
   static const int16_t VALUE_BAR_X = 2;
-  static const int16_t VALUE_BAR_Y = 64;
+  static const int16_t VALUE_BAR_Y = 46;
   static const int16_t BATTERY_X = 2;
-  static const int16_t BATTERY_Y = 100;
+  static const int16_t BATTERY_Y = 82;
 
   Adafruit_SSD1306 &display;
   int value = 14;
@@ -98,15 +98,15 @@ private:
     drawValue();
     drawValueBar();
 
-    char voltageText[7];
+    char voltageText[8];
     snprintf(
       voltageText,
       sizeof(voltageText),
-      "%d.%02d",
+      "%d.%02dV",
       voltageHundredths / 100,
       voltageHundredths % 100
     );
-    drawCenteredText(voltageText, 1, 86);
+    drawCenteredText(voltageText, 1, 68);
 
     drawBatteryIndicator();
 
@@ -135,7 +135,7 @@ private:
       display.setTextColor(SSD1306_BLACK);
     }
 
-    drawCenteredText(enabled ? "ON" : "OFF", 1, 22);
+    drawCenteredText(enabled ? "ON" : "OFF", 1, 4);
     display.setTextColor(SSD1306_WHITE);
   }
 
@@ -177,10 +177,10 @@ private:
     const int16_t totalWidth = valueWidth + gap + percentWidth;
     const int16_t x = (display.width() - totalWidth) / 2;
 
-    display.setCursor(x, 44);
+    display.setCursor(x, 26);
     display.print(valueText);
     display.setTextSize(1);
-    display.setCursor(x + valueWidth + gap, 44);
+    display.setCursor(x + valueWidth + gap, 26);
     display.print("%");
   }
 
@@ -214,18 +214,19 @@ private:
     const int clampedPercentage = batteryPercentage < 0
       ? 0
       : (batteryPercentage > 100 ? 100 : batteryPercentage);
-    const int filledSegments =
-      clampedPercentage == 0 ? 1 : (clampedPercentage + 19) / 20;
+    const int filledSegments = clampedPercentage == 100
+      ? 5
+      : (clampedPercentage * 6) / 100;
 
-    display.drawRect(BATTERY_X, BATTERY_Y, 25, 12, SSD1306_WHITE);
-    display.drawRect(BATTERY_X + 25, BATTERY_Y + 3, 3, 6, SSD1306_WHITE);
+    display.drawRect(BATTERY_X, BATTERY_Y, 25, 10, SSD1306_WHITE);
+    display.drawRect(BATTERY_X + 25, BATTERY_Y + 3, 3, 4, SSD1306_WHITE);
 
     for (int segment = 0; segment < filledSegments; ++segment) {
       display.fillRect(
         BATTERY_X + 2 + segment * 4,
         BATTERY_Y + 2,
         3,
-        8,
+        6,
         SSD1306_WHITE
       );
     }
