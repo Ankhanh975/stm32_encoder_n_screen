@@ -2,22 +2,34 @@
 #define DISPLAY_CONTROLLER_H
 
 #include <Arduino.h>
+#include <Wire.h>
 #include <Adafruit_SSD1306.h>
 
 class DisplayController {
 public:
-  explicit DisplayController(Adafruit_SSD1306 &display)
-    : display(display) {}
+  DisplayController(Adafruit_SSD1306 &display, TwoWire &wire)
+    : display(display),
+      wire(wire) {}
 
   bool begin() {
-    if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
+    initialized = initializeDisplay();
+    if (!initialized) {
       return false;
     }
 
-    display.setRotation(1);
-    display.setTextColor(SSD1306_WHITE);
     showArming();
-    return true;
+    initialized = checkConnection();
+    return initialized;
+  }
+
+  void update() {
+    if (initialized ||
+        millis() - lastRecoveryAttempt < RECOVERY_INTERVAL) {
+      return;
+    }
+
+    lastRecoveryAttempt = millis();
+    recover();
   }
 
   void render(
@@ -30,20 +42,36 @@ public:
     this->enabled = enabled;
     this->voltageHundredths = voltageHundredths;
     this->batteryPercentage = batteryPercentage;
-    draw();
+    drawIfReady();
   }
 
   void sleep() {
+    sleeping = true;
+    if (!initialized) {
+      return;
+    }
+
     display.ssd1306_command(SSD1306_DISPLAYOFF);
+    recoverIfNeeded();
   }
 
   void wake() {
+    sleeping = false;
+    if (!initialized) {
+      return;
+    }
+
     display.ssd1306_command(SSD1306_DISPLAYON);
-    draw();
+    if (recoverIfNeeded()) {
+      drawIfReady();
+    }
   }
 
 private:
   static const uint8_t OLED_ADDRESS = 0x3C;
+  static const uint32_t I2C_CLOCK_HZ = 400000;
+  static const uint32_t I2C_TIMEOUT_US = 25000;
+  static const unsigned long RECOVERY_INTERVAL = 1000;
   static const int16_t STATUS_BADGE_X = 2;
   static const int16_t STATUS_RECT_Y = 0;
   static const int16_t STATUS_BADGE_WIDTH = 28;
@@ -54,10 +82,70 @@ private:
   static const int16_t BATTERY_Y = 82;
 
   Adafruit_SSD1306 &display;
+  TwoWire &wire;
   int value = 14;
   bool enabled = false;
   int voltageHundredths = 0;
   int batteryPercentage = 0;
+  bool initialized = false;
+  bool sleeping = false;
+  unsigned long lastRecoveryAttempt = 0;
+
+  bool initializeDisplay() {
+    if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
+      return false;
+    }
+
+    display.setRotation(1);
+    display.setTextColor(SSD1306_WHITE);
+    return checkConnection();
+  }
+
+  bool checkConnection() {
+    wire.beginTransmission(OLED_ADDRESS);
+    const bool connected =
+      wire.endTransmission() == 0 && !wire.getWireTimeoutFlag();
+    wire.clearWireTimeoutFlag();
+    return connected;
+  }
+
+  bool recoverIfNeeded() {
+    if (!checkConnection()) {
+      recover();
+      return false;
+    }
+    return true;
+  }
+
+  void recover() {
+    initialized = false;
+
+    wire.end();
+    wire.begin();
+    wire.setClock(I2C_CLOCK_HZ);
+    wire.setWireTimeout(I2C_TIMEOUT_US, true);
+
+    if (!initializeDisplay()) {
+      return;
+    }
+
+    if (sleeping) {
+      display.ssd1306_command(SSD1306_DISPLAYOFF);
+    } else {
+      drawFrame();
+    }
+
+    initialized = checkConnection();
+  }
+
+  void drawIfReady() {
+    if (!initialized) {
+      return;
+    }
+
+    drawFrame();
+    recoverIfNeeded();
+  }
 
   void showArming() {
     display.clearDisplay();
@@ -90,7 +178,7 @@ private:
     display.print(text);
   }
 
-  void draw() {
+  void drawFrame() {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
 

@@ -109,7 +109,7 @@ private:
 
 EncoderController encoder(CLK_PIN, DT_PIN, SW_PIN);
 EscController escController(ESC_PIN, MIN_PWM, MAX_PWM);
-DisplayController displayController(display);
+DisplayController displayController(display, Wire);
 VoltageMonitor voltageMonitor(A0);
 
 const unsigned long DISPLAY_SLEEP_TIMEOUT = 45000;
@@ -164,12 +164,11 @@ void setup() {
 
   Wire.begin();
   Wire.setClock(400000);
+  Wire.setWireTimeout(25000, true);
 
   encoder.begin();
 
-  if (!displayController.begin()) {
-    while (1);
-  }
+  displayController.begin();
 
   voltageMonitor.begin();
   refreshDisplay();
@@ -177,6 +176,8 @@ void setup() {
 }
 
 void loop() {
+  displayController.update();
+
   if (voltageMonitor.update()) {
     if (!displayAsleep) {
       refreshDisplay();

@@ -11,6 +11,7 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 - Average voltage per cell for a 3-cell series battery, displayed with two decimal places
 - Auto-display sleep after inactivity
 - Built-in ESC startup sequence for safe arming
+- OLED I²C recovery: bounded bus timeouts and OLED address checks trigger bus/display reinitialization and periodic retries without stopping the ESC control loop
 
 ## Hardware
 
