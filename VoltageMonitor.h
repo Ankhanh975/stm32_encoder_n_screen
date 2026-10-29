@@ -84,7 +84,7 @@ public:
 
 private:
   static const unsigned long READ_INTERVAL = 150;
-  static const long BATTERY_BAR_RECOVERY_MILLIVOLTS = 40;
+  static const long BATTERY_BAR_THRESHOLD_OFFSET_MILLIVOLTS = 20;
   static const long ADC_TO_CELL_MILLIVOLTS_NUMERATOR = 223800;
   static const long ADC_TO_CELL_MILLIVOLTS_DENOMINATOR = 27621;
 
@@ -96,19 +96,28 @@ private:
 
   void updateBatteryEstimate() {
     batteryPercentage = estimateBatteryPercentage(filteredVoltageMillivolts);
-    const int estimatedBars = estimateBatteryBars(batteryPercentage);
-    if (estimatedBars < batteryBars) {
-      batteryBars = estimatedBars;
+    const int lowerThresholdBars = estimateBarsAtVoltage(
+      filteredVoltageMillivolts +
+      BATTERY_BAR_THRESHOLD_OFFSET_MILLIVOLTS
+    );
+    if (lowerThresholdBars < batteryBars) {
+      batteryBars = lowerThresholdBars;
       return;
     }
 
-    const int recoveredPercentage = estimateBatteryPercentage(
-      filteredVoltageMillivolts - BATTERY_BAR_RECOVERY_MILLIVOLTS
+    const int upperThresholdBars = estimateBarsAtVoltage(
+      filteredVoltageMillivolts -
+      BATTERY_BAR_THRESHOLD_OFFSET_MILLIVOLTS
     );
-    const int recoveredBars = estimateBatteryBars(recoveredPercentage);
-    if (recoveredBars > batteryBars) {
-      batteryBars = recoveredBars;
+    if (upperThresholdBars > batteryBars) {
+      batteryBars = upperThresholdBars;
     }
+  }
+
+  static int estimateBarsAtVoltage(long cellVoltageMillivolts) {
+    return estimateBatteryBars(
+      estimateBatteryPercentage(cellVoltageMillivolts)
+    );
   }
 
   long readVoltageMillivolts() const {
