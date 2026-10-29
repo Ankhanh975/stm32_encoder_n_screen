@@ -10,6 +10,7 @@ public:
 
   void begin() {
     filteredVoltageMillivolts = readVoltageMillivolts();
+    batteryPercentage = estimateBatteryPercentage(filteredVoltageMillivolts);
     lastReadTime = millis();
   }
 
@@ -22,7 +23,8 @@ public:
     lastReadTime = now;
     const long sampleMillivolts = readVoltageMillivolts();
     filteredVoltageMillivolts =
-      (5L * filteredVoltageMillivolts + 3L * sampleMillivolts + 4L) / 8L;
+      (3L * filteredVoltageMillivolts + sampleMillivolts + 2L) / 4L;
+    batteryPercentage = estimateBatteryPercentage(filteredVoltageMillivolts);
     return true;
   }
 
@@ -30,31 +32,41 @@ public:
     return (filteredVoltageMillivolts + 5) / 10;
   }
 
+  int getBatteryPercentage() const {
+    return batteryPercentage;
+  }
+
   // Approximate resting-voltage curve for a typical 4.2 V Li-ion cell.
-  int estimateBatteryPercentage(float cellVoltage) const {
-    static const float voltagePoints[] = {
-      3.00, 3.30, 3.50, 3.60, 3.70, 3.80, 3.90, 4.00, 4.10, 4.20
+  static int estimateBatteryPercentage(long cellVoltageMillivolts) {
+    static const long voltagePointsMillivolts[] = {
+      3000, 3300, 3500, 3600, 3700, 3800, 3900, 4000, 4100, 4200
     };
     static const int percentagePoints[] = {
       0, 5, 10, 20, 40, 60, 75, 85, 95, 100
     };
     static const int pointCount =
-      sizeof(voltagePoints) / sizeof(voltagePoints[0]);
+      sizeof(voltagePointsMillivolts) /
+      sizeof(voltagePointsMillivolts[0]);
 
-    if (cellVoltage <= voltagePoints[0]) {
+    if (cellVoltageMillivolts <= voltagePointsMillivolts[0]) {
       return percentagePoints[0];
     }
-    if (cellVoltage >= voltagePoints[pointCount - 1]) {
+    if (cellVoltageMillivolts >=
+        voltagePointsMillivolts[pointCount - 1]) {
       return percentagePoints[pointCount - 1];
     }
 
     for (int i = 1; i < pointCount; ++i) {
-      if (cellVoltage <= voltagePoints[i]) {
-        const float fraction =
-          (cellVoltage - voltagePoints[i - 1]) /
-          (voltagePoints[i] - voltagePoints[i - 1]);
+      if (cellVoltageMillivolts <= voltagePointsMillivolts[i]) {
+        const long voltageRange =
+          voltagePointsMillivolts[i] - voltagePointsMillivolts[i - 1];
+        const long voltageAboveLowerPoint =
+          cellVoltageMillivolts - voltagePointsMillivolts[i - 1];
+        const int percentageRange =
+          percentagePoints[i] - percentagePoints[i - 1];
         return percentagePoints[i - 1] +
-          fraction * (percentagePoints[i] - percentagePoints[i - 1]);
+          (percentageRange * voltageAboveLowerPoint + voltageRange / 2) /
+          voltageRange;
       }
     }
 
@@ -68,6 +80,7 @@ private:
 
   int pin;
   long filteredVoltageMillivolts = 0;
+  int batteryPercentage = 0;
   unsigned long lastReadTime = 0;
 
   long readVoltageMillivolts() const {

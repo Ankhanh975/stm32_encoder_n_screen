@@ -1,7 +1,6 @@
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include <Servo.h>
+#include "DisplayController.h"
 #include "EncoderController.h"
 #include "VoltageMonitor.h"
 
@@ -12,7 +11,6 @@
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define OLED_RESET -1
-#define OLED_ADDRESS 0x3C
 
 const int CLK_PIN = 8;
 const int DT_PIN  = 9;
@@ -106,119 +104,6 @@ private:
 };
 
 // =========================
-// Display controller
-// =========================
-
-class DisplayController {
-public:
-  explicit DisplayController(Adafruit_SSD1306 &display)
-    : display(display) {}
-
-  bool begin() {
-    if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
-      return false;
-    }
-
-    display.setRotation(1);
-    display.setTextColor(SSD1306_WHITE);
-    showArming();
-    return true;
-  }
-
-  void render(int value, bool enabled, int voltageHundredths) {
-    this->value = value;
-    this->enabled = enabled;
-    this->voltageHundredths = voltageHundredths;
-    draw();
-  }
-
-  void sleep() {
-    display.ssd1306_command(SSD1306_DISPLAYOFF);
-  }
-
-  void wake() {
-    display.ssd1306_command(SSD1306_DISPLAYON);
-    draw();
-  }
-
-private:
-  static const int16_t STATUS_RECT_X = 0;
-  static const int16_t STATUS_RECT_Y = 18;
-  static const int16_t STATUS_RECT_HEIGHT = 20;
-
-  Adafruit_SSD1306 &display;
-  int value = 14;
-  bool enabled = false;
-  int voltageHundredths = 0;
-
-  void showArming() {
-    display.clearDisplay();
-    drawCenteredText("ARMING", 1, 33);
-    display.display();
-  }
-
-  void drawCenteredText(
-    const char *text,
-    uint8_t textSize,
-    int16_t y
-  ) {
-    int16_t x;
-    int16_t textY;
-    uint16_t textWidth;
-    uint16_t textHeight;
-
-    display.setTextSize(textSize);
-    display.getTextBounds(
-      text,
-      0,
-      y,
-      &x,
-      &textY,
-      &textWidth,
-      &textHeight
-    );
-
-    display.setCursor((display.width() - textWidth) / 2, y);
-    display.print(text);
-  }
-
-  void draw() {
-    display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
-
-    drawCenteredText(enabled ? "ON" : "OFF", 1, 24);
-
-    char valueText[5];
-    if (value == 100) {
-      snprintf(valueText, sizeof(valueText), "00");
-    } else {
-      snprintf(valueText, sizeof(valueText), "%d", value);
-    }
-    drawCenteredText(valueText, 2, 52);
-
-    char voltageText[7];
-    snprintf(
-      voltageText,
-      sizeof(voltageText),
-      "%d.%02d",
-      voltageHundredths / 100,
-      voltageHundredths % 100
-    );
-    drawCenteredText(voltageText, 1, 82);
-
-    display.drawRect(
-      STATUS_RECT_X,
-      STATUS_RECT_Y,
-      display.width(),
-      STATUS_RECT_HEIGHT,
-      SSD1306_WHITE
-    );
-
-    display.display();
-  }
-};
-
-// =========================
 // Application
 // =========================
 
@@ -254,7 +139,8 @@ void refreshDisplay() {
   displayController.render(
     value,
     enabled,
-    voltageMonitor.getVoltageHundredths()
+    voltageMonitor.getVoltageHundredths(),
+    voltageMonitor.getBatteryPercentage()
   );
 }
 
@@ -266,6 +152,7 @@ void wakeDisplay() {
   if (displayAsleep) {
     displayController.wake();
     displayAsleep = false;
+    refreshDisplay();
   }
 }
 
