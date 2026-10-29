@@ -44,11 +44,14 @@ public:
 
 private:
   static const uint8_t OLED_ADDRESS = 0x3C;
-  static const int16_t STATUS_RECT_X = 0;
+  static const int16_t STATUS_BADGE_X = 2;
   static const int16_t STATUS_RECT_Y = 18;
-  static const int16_t STATUS_RECT_HEIGHT = 20;
+  static const int16_t STATUS_BADGE_WIDTH = 28;
+  static const int16_t STATUS_BADGE_HEIGHT = 16;
+  static const int16_t VALUE_BAR_X = 2;
+  static const int16_t VALUE_BAR_Y = 64;
   static const int16_t BATTERY_X = 2;
-  static const int16_t BATTERY_Y = 94;
+  static const int16_t BATTERY_Y = 100;
 
   Adafruit_SSD1306 &display;
   int value = 14;
@@ -91,15 +94,9 @@ private:
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
 
-    drawCenteredText(enabled ? "ON" : "OFF", 1, 24);
-
-    char valueText[5];
-    if (value == 100) {
-      snprintf(valueText, sizeof(valueText), "00");
-    } else {
-      snprintf(valueText, sizeof(valueText), "%d", value);
-    }
-    drawCenteredText(valueText, 2, 52);
+    drawState();
+    drawValue();
+    drawValueBar();
 
     char voltageText[7];
     snprintf(
@@ -109,19 +106,108 @@ private:
       voltageHundredths / 100,
       voltageHundredths % 100
     );
-    drawCenteredText(voltageText, 1, 82);
+    drawCenteredText(voltageText, 1, 86);
 
     drawBatteryIndicator();
 
-    display.drawRect(
-      STATUS_RECT_X,
+    display.display();
+  }
+
+  void drawState() {
+    display.drawRoundRect(
+      STATUS_BADGE_X,
       STATUS_RECT_Y,
-      display.width(),
-      STATUS_RECT_HEIGHT,
+      STATUS_BADGE_WIDTH,
+      STATUS_BADGE_HEIGHT,
+      4,
       SSD1306_WHITE
     );
 
-    display.display();
+    if (enabled) {
+      display.fillRoundRect(
+        STATUS_BADGE_X,
+        STATUS_RECT_Y,
+        STATUS_BADGE_WIDTH,
+        STATUS_BADGE_HEIGHT,
+        4,
+        SSD1306_WHITE
+      );
+      display.setTextColor(SSD1306_BLACK);
+    }
+
+    drawCenteredText(enabled ? "ON" : "OFF", 1, 22);
+    display.setTextColor(SSD1306_WHITE);
+  }
+
+  void drawValue() {
+    char valueText[12];
+    snprintf(valueText, sizeof(valueText), "%d", value);
+
+    int16_t boundsX;
+    int16_t boundsY;
+    uint16_t valueWidth;
+    uint16_t valueHeight;
+
+    display.setTextSize(2);
+    display.getTextBounds(
+      valueText,
+      0,
+      0,
+      &boundsX,
+      &boundsY,
+      &valueWidth,
+      &valueHeight
+    );
+    uint8_t valueTextSize =
+      valueWidth + 8 <= display.width() ? 2 : 1;
+
+    display.setTextSize(valueTextSize);
+    display.getTextBounds(
+      valueText,
+      0,
+      0,
+      &boundsX,
+      &boundsY,
+      &valueWidth,
+      &valueHeight
+    );
+
+    const int16_t percentWidth = 6;
+    const int16_t gap = 2;
+    const int16_t totalWidth = valueWidth + gap + percentWidth;
+    const int16_t x = (display.width() - totalWidth) / 2;
+
+    display.setCursor(x, 44);
+    display.print(valueText);
+    display.setTextSize(1);
+    display.setCursor(x + valueWidth + gap, 44);
+    display.print("%");
+  }
+
+  void drawValueBar() {
+    const int clampedValue = value < 0
+      ? 0
+      : (value > 100 ? 100 : value);
+    const int filledWidth = (26 * clampedValue + 50) / 100;
+
+    display.drawRoundRect(
+      VALUE_BAR_X,
+      VALUE_BAR_Y,
+      28,
+      4,
+      2,
+      SSD1306_WHITE
+    );
+
+    if (filledWidth > 0) {
+      display.fillRect(
+        VALUE_BAR_X + 1,
+        VALUE_BAR_Y + 1,
+        filledWidth,
+        2,
+        SSD1306_WHITE
+      );
+    }
   }
 
   void drawBatteryIndicator() {
