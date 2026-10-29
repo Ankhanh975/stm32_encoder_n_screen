@@ -23,7 +23,7 @@ public:
     lastReadTime = now;
     const long sampleMillivolts = readVoltageMillivolts();
     filteredVoltageMillivolts =
-      (3L * filteredVoltageMillivolts + sampleMillivolts + 2L) / 4L;
+      (4L * filteredVoltageMillivolts + sampleMillivolts + 2L) / 5L;
     batteryPercentage = estimateBatteryPercentage(filteredVoltageMillivolts);
     return true;
   }
@@ -42,7 +42,7 @@ public:
       3000, 3300, 3500, 3600, 3700, 3800, 3900, 4000, 4100, 4200
     };
     static const int percentagePoints[] = {
-      0, 5, 10, 20, 40, 60, 75, 85, 95, 100
+      0, 5, 10, 20, 50, 60, 75, 85, 95, 100
     };
     static const int pointCount =
       sizeof(voltagePointsMillivolts) /
