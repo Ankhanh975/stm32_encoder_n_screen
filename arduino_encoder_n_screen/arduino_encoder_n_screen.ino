@@ -129,19 +129,13 @@ unsigned long lastInputTime = 0;
 bool displayAsleep = false;
 
 int valueStep(int direction) {
-    if (value < 16) {
+    if (value < 20) {
       return 1;
     }
-    if (value < 30) {
+    if (value < 60) {
       return 2;
     }
-    if (value < 64) {
-      return 4;
-    }
-    if (value < 80) {
-      return 8;
-    }
-    return 8;
+    return 4;
   }
 
 void refreshDisplay() {
