@@ -202,6 +202,10 @@ void loop() {
       wakeDisplay();
     } else {
       enabled = !enabled;
+      if (!enabled) {
+        value = 14;
+        escController.setValue(value);
+      }
       escController.setEnabled(enabled);
       refreshDisplay();
     }

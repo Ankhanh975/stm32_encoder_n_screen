@@ -20,30 +20,37 @@ public:
     stableButtonState = HIGH;
     lastDebounceTime = 0;
     transitionCount = 0;
+    lastDirection = 0;
   }
 
   int readRotation() {
     const uint8_t currentState = readEncoderState();
     int direction = 0;
+    int transitionMagnitude = 1;
 
     if (currentState != lastEncoderState) {
       direction = transitionDirection(lastEncoderState, currentState);
 
       if (direction != 0) {
-        transitionCount += direction;
-
-        if (transitionCount >= 2 || transitionCount <= -2) {
-          direction = transitionCount > 0 ? 1 : -1;
-          transitionCount = 0;
-        } else {
-          direction = 0;
-        }
+        lastDirection = direction;
+      } else if ((lastEncoderState ^ currentState) == 0x03 &&
+                 lastDirection != 0) {
+        // A diagonal jump skips two edges; infer them from the last direction.
+        direction = lastDirection;
+        transitionMagnitude = 2;
       }
 
+      transitionCount += direction * transitionMagnitude;
       lastEncoderState = currentState;
     }
 
-    return direction;
+    if (transitionCount >= 2 || transitionCount <= -2) {
+      direction = transitionCount > 0 ? 1 : -1;
+      transitionCount -= direction * 2;
+      return direction;
+    }
+
+    return 0;
   }
 
   bool readButtonPressed() {
@@ -72,6 +79,7 @@ private:
   int switchPin;
   uint8_t lastEncoderState = 0;
   int transitionCount = 0;
+  int lastDirection = 0;
   bool lastButtonReading = HIGH;
   bool stableButtonState = HIGH;
   unsigned long lastDebounceTime = 0;

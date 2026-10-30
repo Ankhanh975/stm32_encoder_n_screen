@@ -9,6 +9,7 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 - Smooth ESC ramping to avoid abrupt throttle changes
 - OLED status display showing the current throttle, enable state, voltage, and a 1–5 segment battery indicator; bar transitions use a symmetric 0.02 V per-cell offset in either direction
 - Average voltage per cell for a 3-cell series battery, displayed with two decimal places
+- Battery voltage text blinks every 500 ms when the per-cell voltage is below 3.00 V
 - Auto-display sleep after inactivity
 - Built-in ESC startup sequence for safe arming
 - OLED I²C recovery: bounded bus timeouts and OLED address checks trigger bus/display reinitialization and periodic retries without stopping the ESC control loop

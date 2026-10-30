@@ -23,13 +23,20 @@ public:
   }
 
   void update() {
-    if (initialized ||
-        millis() - lastRecoveryAttempt < RECOVERY_INTERVAL) {
-      return;
+    const unsigned long now = millis();
+    if (!initialized && now - lastRecoveryAttempt >= RECOVERY_INTERVAL) {
+      lastRecoveryAttempt = now;
+      recover();
     }
 
-    lastRecoveryAttempt = millis();
-    recover();
+    if (initialized &&
+        !sleeping &&
+        lowVoltage &&
+        now - lastVoltageBlinkTime >= VOLTAGE_BLINK_INTERVAL) {
+      lastVoltageBlinkTime = now;
+      voltageVisible = !voltageVisible;
+      drawIfReady();
+    }
   }
 
   void render(
@@ -38,6 +45,13 @@ public:
     int voltageHundredths,
     int batteryBars
   ) {
+    const bool shouldBlink = voltageHundredths < VOLTAGE_BLINK_THRESHOLD;
+    if (shouldBlink != lowVoltage) {
+      lowVoltage = shouldBlink;
+      voltageVisible = true;
+      lastVoltageBlinkTime = millis();
+    }
+
     this->value = value;
     this->enabled = enabled;
     this->voltageHundredths = voltageHundredths;
@@ -72,6 +86,8 @@ private:
   static const uint32_t I2C_CLOCK_HZ = 400000;
   static const uint32_t I2C_TIMEOUT_US = 25000;
   static const unsigned long RECOVERY_INTERVAL = 1000;
+  static const unsigned long VOLTAGE_BLINK_INTERVAL = 500;
+  static const int VOLTAGE_BLINK_THRESHOLD = 300;
   static const int16_t VALUE_BAR_X = 2;
   static const int16_t VALUE_BAR_Y = 21;
   static const int16_t BATTERY_X = 2;
@@ -83,9 +99,12 @@ private:
   bool enabled = false;
   int voltageHundredths = 0;
   int batteryBars = 0;
+  bool lowVoltage = false;
+  bool voltageVisible = true;
   bool initialized = false;
   bool sleeping = false;
   unsigned long lastRecoveryAttempt = 0;
+  unsigned long lastVoltageBlinkTime = 0;
 
   bool initializeDisplay() {
     if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
@@ -178,7 +197,7 @@ private:
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
 
-    drawCenteredText("power", 1, 10);
+    drawCenteredText("Power", 1, 10);
     drawValue();
     drawValueBar();
 
@@ -190,7 +209,9 @@ private:
       voltageHundredths / 100,
       voltageHundredths % 100
     );
-    drawCenteredText(voltageText, 1, 68);
+    if (voltageVisible) {
+      drawCenteredText(voltageText, 1, 68);
+    }
 
     drawBatteryIndicator();
 
@@ -198,6 +219,11 @@ private:
   }
 
   void drawValue() {
+    if (!enabled) {
+      drawCenteredText("Off", 1, 29);
+      return;
+    }
+
     char valueText[12];
     snprintf(valueText, sizeof(valueText), "%d", value);
 
