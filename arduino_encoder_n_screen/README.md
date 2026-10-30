@@ -5,6 +5,7 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 ## Features
 
 - Rotary encoder-based throttle control from 0 to 100
+- Encoder rotation decoded with pin-change interrupts on Nano pins 8 and 9; queued detents are applied before one display refresh
 - Button press toggles the ESC on/off
 - Smooth ESC ramping to avoid abrupt throttle changes
 - OLED status display showing the current throttle, enable state, voltage, and a 1–5 segment battery indicator; bar transitions use a symmetric 0.02 V per-cell offset in either direction
@@ -40,6 +41,8 @@ The sketch expects the following hardware:
 | OLED VCC | 3.3V or 5V depending on module |
 
 Note: The sketch converts the raw Nano ADC reading directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A0 at or below 5 V; the divider must keep the pin within that limit. If hardware or calibration changes, update the conversion constants in `VoltageMonitor.h`.
+
+On the classic Nano (ATmega328P), encoder CLK and DT inputs use the Port B pin-change interrupt group (PCINT0). The default pins 8 and 9 are supported; other pins fall back to polling. The push button remains polled and debounced in the main loop.
 
 ## Libraries
 

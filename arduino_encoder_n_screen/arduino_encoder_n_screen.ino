@@ -1,5 +1,8 @@
 #include <Wire.h>
 #include <Servo.h>
+#if defined(__AVR_ATmega328P__)
+#include <avr/interrupt.h>
+#endif
 #include "DisplayController.h"
 #include "EncoderController.h"
 #include "VoltageMonitor.h"
@@ -112,6 +115,12 @@ EscController escController(ESC_PIN, MIN_PWM, MAX_PWM);
 DisplayController displayController(display, Wire);
 VoltageMonitor voltageMonitor(A0);
 
+#if defined(__AVR_ATmega328P__)
+ISR(PCINT0_vect) {
+  encoder.handleEncoderInterrupt();
+}
+#endif
+
 const unsigned long DISPLAY_SLEEP_TIMEOUT = 45000;
 
 int value = 14;
@@ -176,22 +185,20 @@ void setup() {
 }
 
 void loop() {
-  displayController.update();
-
-  if (voltageMonitor.update()) {
-    if (!displayAsleep) {
-      refreshDisplay();
-    }
-  }
-
   const int rotation = encoder.readRotation();
+  bool refreshNeeded = false;
 
   if (rotation != 0 && !displayAsleep) {
     registerInput();
-    value += rotation * valueStep(rotation);
-    value = constrain(value, 0, 100);
+    int remainingRotation = rotation;
+    while (remainingRotation != 0) {
+      const int direction = remainingRotation > 0 ? 1 : -1;
+      value += direction * valueStep(direction);
+      value = constrain(value, 0, 100);
+      remainingRotation -= direction;
+    }
     escController.setValue(value);
-    refreshDisplay();
+    refreshNeeded = true;
   }
 
   if (encoder.readButtonPressed()) {
@@ -207,8 +214,18 @@ void loop() {
         escController.setValue(value);
       }
       escController.setEnabled(enabled);
-      refreshDisplay();
+      refreshNeeded = true;
     }
+  }
+
+  displayController.update();
+
+  if (voltageMonitor.update() && !displayAsleep) {
+    refreshNeeded = true;
+  }
+
+  if (refreshNeeded && !displayAsleep) {
+    refreshDisplay();
   }
 
   escController.update();
