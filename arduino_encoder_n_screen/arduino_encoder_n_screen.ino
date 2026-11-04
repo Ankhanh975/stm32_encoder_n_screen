@@ -71,7 +71,11 @@ public:
       : minPwm;
 
     const unsigned long now = millis();
-    if (now - lastRampTime < RAMP_INTERVAL) {
+    const unsigned long rampInterval =
+      currentPwm < targetPwm && value > SLOW_RAMP_THRESHOLD
+        ? SLOW_RAMP_INTERVAL
+        : RAMP_INTERVAL;
+    if (now - lastRampTime < rampInterval) {
       return;
     }
 
@@ -94,6 +98,8 @@ public:
 
 private:
   static const unsigned long RAMP_INTERVAL = 20;
+  static const unsigned long SLOW_RAMP_INTERVAL = 40;
+  static const int SLOW_RAMP_THRESHOLD = 60;
   static const int RAMP_STEP = 5;
 
   Servo esc;

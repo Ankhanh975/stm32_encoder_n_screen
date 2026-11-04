@@ -8,7 +8,7 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 - Precalculated EDF power estimates for idle, 1–20% throttle, and even throttle values from 22–100% (61 entries total); estimated watts are shown on the OLED
 - Encoder rotation decoded with pin-change interrupts on Nano pins 8 and 9; queued detents are applied before one display refresh
 - Button press toggles the ESC on/off
-- Smooth ESC ramping to avoid abrupt throttle changes
+- Smooth ESC ramping to avoid abrupt throttle changes; ramp-up above 60% throttle runs at half speed, while ramp-down keeps its normal rate
 - OLED status display showing the current throttle, enable state, voltage, and a 1–5 segment battery indicator; bar transitions use a symmetric 0.02 V per-cell offset in either direction
 - Average voltage per cell for a 3-cell series battery, displayed with two decimal places
 - Battery voltage text blinks every 500 ms when the per-cell voltage is below 3.00 V
