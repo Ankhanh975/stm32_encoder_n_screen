@@ -5,6 +5,7 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 ## Features
 
 - Rotary encoder-based throttle control from 0 to 100
+- Precalculated EDF power estimates for idle, 1–20% throttle, and even throttle values from 22–100% (61 entries total); estimated watts are shown on the OLED
 - Encoder rotation decoded with pin-change interrupts on Nano pins 8 and 9; queued detents are applied before one display refresh
 - Button press toggles the ESC on/off
 - Smooth ESC ramping to avoid abrupt throttle changes
@@ -23,7 +24,7 @@ The sketch expects the following hardware:
 - SSD1306 128x32 I2C OLED display
 - Rotary encoder with CLK, DT, and SW pins
 - ESC connected to a PWM signal pin
-- A 4:1 voltage divider with its output connected to A0 and its low side connected to common ground
+- A 4:1 voltage divider with its output connected to A1 and its low side connected to common ground
 - Common 5V/GND power distribution
 
 ## Pin mapping
@@ -34,13 +35,13 @@ The sketch expects the following hardware:
 | Encoder DT | 9 |
 | Encoder SW | 10 |
 | ESC signal | 3 |
-| Voltage divider output | A0 |
+| Voltage divider output | A1 |
 | OLED SDA | SDA |
 | OLED SCL | SCL |
 | OLED GND | GND |
 | OLED VCC | 3.3V or 5V depending on module |
 
-Note: The sketch converts the raw Nano ADC reading directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A0 at or below 5 V; the divider must keep the pin within that limit. If hardware or calibration changes, update the conversion constants in `VoltageMonitor.h`.
+Note: The sketch converts the raw Nano ADC reading directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A1 at or below 5 V; the divider must keep the pin within that limit. If hardware or calibration changes, update the conversion constants in `VoltageMonitor.h`.
 
 On the classic Nano (ATmega328P), encoder CLK and DT inputs use the Port B pin-change interrupt group (PCINT0). The default pins 8 and 9 are supported; other pins fall back to polling. The push button remains polled and debounced in the main loop.
 
@@ -57,13 +58,14 @@ Install these libraries in the Arduino IDE or PlatformIO environment:
 
 1. Upload the sketch to the Arduino Nano.
 2. Power the ESC and display.
-3. Rotate the encoder to adjust the throttle value.
+3. Rotate the encoder to adjust the throttle value in 1% steps below 20% and 2% steps from 20% upward.
 4. Press the encoder button to arm/disarm the ESC.
-5. The OLED displays the power state (`ON`/`OFF`), the active value, measured voltage per cell, and a battery indicator with one to five filled segments based on estimated charge.
+5. The OLED displays the throttle setting, estimated power draw, measured voltage per cell, and a battery indicator with one to five filled segments based on estimated charge.
 
 ## Notes
 
 - The ESC startup routine intentionally performs a safe arming sequence before normal operation.
+- Estimated watts use the EDF model's fixed 310 W maximum, 12.6 V battery, and 0.09958 Ω internal resistance; they are not live power measurements.
 - The throttle is constrained to a range of 0 to 100 and is only sent to the ESC when enabled.
 - Display sleep is enabled after a timeout to reduce burn-in and save power.
 - The code uses `Servo` for the ESC signal and expects the ESC to accept standard PWM input signals.
@@ -73,6 +75,7 @@ Install these libraries in the Arduino IDE or PlatformIO environment:
 - `stm32_encoder_n_screen.ino` — main application sketch
 - `DisplayController.h` — OLED display initialization and rendering
 - `EncoderController.h` — rotary encoder and button input logic
+- `PowerEstimator.h` — precalculated EDF power estimates for the supported throttle settings
 - `VoltageMonitor.h` — voltage measurement, battery percentage estimation, and battery bar calculation
 
 ## License

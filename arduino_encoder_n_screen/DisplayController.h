@@ -29,12 +29,26 @@ public:
       recover();
     }
 
+    bool warningVisibilityChanged = false;
     if (initialized &&
         !sleeping &&
         lowVoltage &&
         now - lastVoltageBlinkTime >= VOLTAGE_BLINK_INTERVAL) {
       lastVoltageBlinkTime = now;
       voltageVisible = !voltageVisible;
+      warningVisibilityChanged = true;
+    }
+
+    if (initialized &&
+        !sleeping &&
+        highPower &&
+        now - lastPowerBlinkTime >= VOLTAGE_BLINK_INTERVAL) {
+      lastPowerBlinkTime = now;
+      powerVisible = !powerVisible;
+      warningVisibilityChanged = true;
+    }
+
+    if (warningVisibilityChanged) {
       drawIfReady();
     }
   }
@@ -42,6 +56,7 @@ public:
   void render(
     int value,
     bool enabled,
+    float estimatedPowerWatts,
     int voltageHundredths,
     int batteryBars
   ) {
@@ -52,8 +67,17 @@ public:
       lastVoltageBlinkTime = millis();
     }
 
+    const bool shouldBlinkPower =
+      enabled && estimatedPowerWatts > HIGH_POWER_BLINK_THRESHOLD_WATTS;
+    if (shouldBlinkPower != highPower) {
+      highPower = shouldBlinkPower;
+      powerVisible = true;
+      lastPowerBlinkTime = millis();
+    }
+
     this->value = value;
     this->enabled = enabled;
+    this->estimatedPowerWatts = estimatedPowerWatts;
     this->voltageHundredths = voltageHundredths;
     this->batteryBars = batteryBars;
     drawIfReady();
@@ -88,6 +112,7 @@ private:
   static const unsigned long RECOVERY_INTERVAL = 1000;
   static const unsigned long VOLTAGE_BLINK_INTERVAL = 500;
   static const int VOLTAGE_BLINK_THRESHOLD = 300;
+  static const int HIGH_POWER_BLINK_THRESHOLD_WATTS = 90;
   static const int16_t VALUE_BAR_X = 2;
   static const int16_t VALUE_BAR_Y = 21;
   static const int16_t BATTERY_X = 2;
@@ -97,14 +122,18 @@ private:
   TwoWire &wire;
   int value = 14;
   bool enabled = false;
+  float estimatedPowerWatts = 0.0f;
   int voltageHundredths = 0;
   int batteryBars = 0;
   bool lowVoltage = false;
+  bool highPower = false;
   bool voltageVisible = true;
+  bool powerVisible = true;
   bool initialized = false;
   bool sleeping = false;
   unsigned long lastRecoveryAttempt = 0;
   unsigned long lastVoltageBlinkTime = 0;
+  unsigned long lastPowerBlinkTime = 0;
 
   bool initializeDisplay() {
     if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
@@ -214,6 +243,7 @@ private:
     }
 
     drawBatteryIndicator();
+    drawEstimatedPower();
 
     display.display();
   }
@@ -253,6 +283,19 @@ private:
     display.setTextSize(1);
     display.setCursor(x + valueWidth + gap, 29);
     display.print("%");
+  }
+
+  void drawEstimatedPower() {
+    char powerText[8];
+    snprintf(
+      powerText,
+      sizeof(powerText),
+      "%dW",
+      static_cast<int>(estimatedPowerWatts + 0.5f)
+    );
+    if (powerVisible) {
+      drawCenteredText(powerText, 1, 82);
+    }
   }
 
   void drawValueBar() {

@@ -5,6 +5,7 @@
 #endif
 #include "DisplayController.h"
 #include "EncoderController.h"
+#include "PowerEstimator.h"
 #include "VoltageMonitor.h"
 
 // =========================
@@ -15,9 +16,9 @@
 #define SCREEN_HEIGHT 32
 #define OLED_RESET -1
 
-const int CLK_PIN = 8;
-const int DT_PIN  = 9;
-const int SW_PIN  = 10;
+const int CLK_PIN = 10;
+const int DT_PIN  = 11;
+const int SW_PIN  = 9;
 const int ESC_PIN = 3;
 
 const int MIN_PWM = 1000;
@@ -113,7 +114,8 @@ private:
 EncoderController encoder(CLK_PIN, DT_PIN, SW_PIN);
 EscController escController(ESC_PIN, MIN_PWM, MAX_PWM);
 DisplayController displayController(display, Wire);
-VoltageMonitor voltageMonitor(A0);
+VoltageMonitor voltageMonitor(A1);
+PowerEstimator powerEstimator;
 
 #if defined(__AVR_ATmega328P__)
 ISR(PCINT0_vect) {
@@ -129,19 +131,14 @@ unsigned long lastInputTime = 0;
 bool displayAsleep = false;
 
 int valueStep(int direction) {
-    if (value < 20) {
-      return 1;
-    }
-    if (value < 60) {
-      return 2;
-    }
-    return 4;
-  }
+  return value < 20 || (direction < 0 && value == 20) ? 1 : 2;
+}
 
 void refreshDisplay() {
   displayController.render(
     value,
     enabled,
+    enabled ? powerEstimator.getPowerWatts(value) : 0.0f,
     voltageMonitor.getVoltageHundredths(),
     voltageMonitor.getBatteryBars()
   );
@@ -174,7 +171,9 @@ void setup() {
   displayController.begin();
 
   voltageMonitor.begin();
+  powerEstimator.begin();
   refreshDisplay();
+  pinMode(1, INPUT);
   lastInputTime = millis();
 }
 
