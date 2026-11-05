@@ -55,6 +55,7 @@ public:
 
     currentPwm = minPwm;
     targetPwm = minPwm;
+    lastThrottleReductionTime = millis();
   }
 
   void setEnabled(bool enabled) {
@@ -65,7 +66,11 @@ public:
     this->value = constrain(value, 0, 100);
   }
 
-  void update() {
+  int getValue() const {
+    return value;
+  }
+
+  bool update(bool batteryLow) {
     targetPwm = enabled
       ? map(value, 0, 100, minPwm, maxPwm)
       : minPwm;
@@ -75,8 +80,25 @@ public:
       currentPwm < targetPwm && value > SLOW_RAMP_THRESHOLD
         ? SLOW_RAMP_INTERVAL
         : RAMP_INTERVAL;
+    bool throttleReduced = false;
+    if (enabled &&
+        batteryLow &&
+        now - lastThrottleReductionTime >= rampInterval / 2) {
+      lastThrottleReductionTime = now;
+      if (value > 0) {
+        value = max(0, value - LOW_BATTERY_THROTTLE_STEP);
+        throttleReduced = true;
+      }
+    } else if (!batteryLow || !enabled) {
+      lastThrottleReductionTime = now;
+    }
+
+    targetPwm = enabled
+      ? map(value, 0, 100, minPwm, maxPwm)
+      : minPwm;
+
     if (now - lastRampTime < rampInterval) {
-      return;
+      return throttleReduced;
     }
 
     lastRampTime = now;
@@ -94,6 +116,7 @@ public:
     }
 
     esc.writeMicroseconds(currentPwm);
+    return throttleReduced;
   }
 
 private:
@@ -101,6 +124,7 @@ private:
   static const unsigned long SLOW_RAMP_INTERVAL = 40;
   static const int SLOW_RAMP_THRESHOLD = 60;
   static const int RAMP_STEP = 5;
+  static const int LOW_BATTERY_THROTTLE_STEP = 2;
 
   Servo esc;
   int pin;
@@ -111,6 +135,7 @@ private:
   int targetPwm = MIN_PWM;
   bool enabled = false;
   unsigned long lastRampTime = 0;
+  unsigned long lastThrottleReductionTime = 0;
 };
 
 // =========================
@@ -130,6 +155,7 @@ ISR(PCINT0_vect) {
 #endif
 
 const unsigned long DISPLAY_SLEEP_TIMEOUT = 45000;
+const int LOW_BATTERY_THROTTLE_THRESHOLD_HUNDREDTHS = 270;
 
 int value = 14;
 bool enabled = false;
@@ -223,11 +249,20 @@ void loop() {
     refreshNeeded = true;
   }
 
+  const bool throttleReduced = escController.update(
+    voltageMonitor.getVoltageHundredths() <
+      LOW_BATTERY_THROTTLE_THRESHOLD_HUNDREDTHS
+  );
+  if (throttleReduced) {
+    value = escController.getValue();
+    if (!displayAsleep) {
+      refreshNeeded = true;
+    }
+  }
+
   if (refreshNeeded && !displayAsleep) {
     refreshDisplay();
   }
-
-  escController.update();
 
   if (!enabled &&
       !displayAsleep &&

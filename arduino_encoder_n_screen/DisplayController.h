@@ -112,7 +112,7 @@ private:
   static const unsigned long RECOVERY_INTERVAL = 1000;
   static const unsigned long VOLTAGE_BLINK_INTERVAL = 500;
   static const int VOLTAGE_BLINK_THRESHOLD = 300;
-  static const int HIGH_POWER_BLINK_THRESHOLD_WATTS = 90;
+  static const int HIGH_POWER_BLINK_THRESHOLD_WATTS = 105;
   static const int16_t VALUE_BAR_X = 2;
   static const int16_t VALUE_BAR_Y = 21;
   static const int16_t BATTERY_X = 2;
