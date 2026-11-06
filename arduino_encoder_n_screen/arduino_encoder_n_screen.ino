@@ -20,6 +20,7 @@ const int CLK_PIN = 10;
 const int DT_PIN  = 11;
 const int SW_PIN  = 9;
 const int ESC_PIN = 3;
+const int CURRENT_SENSOR_PIN = A0;
 
 const int MIN_PWM = 1000;
 const int MAX_PWM = 2000;
@@ -166,13 +167,19 @@ int valueStep(int direction) {
   return value < 20 || (direction < 0 && value == 20) ? 1 : 2;
 }
 
+int readCurrentSensorRaw() {
+  analogRead(CURRENT_SENSOR_PIN);
+  return analogRead(CURRENT_SENSOR_PIN);
+}
+
 void refreshDisplay() {
   displayController.render(
     value,
     enabled,
     enabled ? powerEstimator.getPowerWatts(value) : 0.0f,
     voltageMonitor.getVoltageHundredths(),
-    voltageMonitor.getBatteryBars()
+    voltageMonitor.getBatteryBars(),
+    readCurrentSensorRaw()
   );
 }
 
@@ -202,6 +209,7 @@ void setup() {
 
   displayController.begin();
 
+  pinMode(CURRENT_SENSOR_PIN, INPUT);
   voltageMonitor.begin();
   powerEstimator.begin();
   refreshDisplay();

@@ -58,7 +58,8 @@ public:
     bool enabled,
     float estimatedPowerWatts,
     int voltageHundredths,
-    int batteryBars
+    int batteryBars,
+    int currentSensorRaw
   ) {
     const bool shouldBlink = voltageHundredths < VOLTAGE_BLINK_THRESHOLD;
     if (shouldBlink != lowVoltage) {
@@ -80,6 +81,7 @@ public:
     this->estimatedPowerWatts = estimatedPowerWatts;
     this->voltageHundredths = voltageHundredths;
     this->batteryBars = batteryBars;
+    this->currentSensorRaw = currentSensorRaw;
     drawIfReady();
   }
 
@@ -125,6 +127,7 @@ private:
   float estimatedPowerWatts = 0.0f;
   int voltageHundredths = 0;
   int batteryBars = 0;
+  int currentSensorRaw = 0;
   bool lowVoltage = false;
   bool highPower = false;
   bool voltageVisible = true;
@@ -242,6 +245,15 @@ private:
       drawCenteredText(voltageText, 1, 68);
     }
 
+    char currentSensorText[6];
+    snprintf(
+      currentSensorText,
+      sizeof(currentSensorText),
+      "%d",
+      currentSensorRaw
+    );
+    drawCenteredText(currentSensorText, 1, 78);
+
     drawBatteryIndicator();
     drawEstimatedPower();
 
@@ -294,7 +306,7 @@ private:
       static_cast<int>(estimatedPowerWatts + 0.5f)
     );
     if (powerVisible) {
-      drawCenteredText(powerText, 1, 82);
+      drawCenteredText(powerText, 1, 94);
     }
   }
 

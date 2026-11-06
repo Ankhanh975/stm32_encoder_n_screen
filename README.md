@@ -24,8 +24,10 @@ ATmega328P. It also expects:
 - An EDF unit driven by a compatible ESC.
 - A rotary encoder with CLK, DT, and push-button (SW) connections.
 - A 128x32 SSD1306 I2C OLED display.
-- A battery voltage divider connected to analog input A0. The current voltage
+- A battery voltage divider connected to analog input A1. The current voltage
   conversion is calibrated for a 4:1 divider and a 3-cell battery pack.
+- An ACS712 30 A current sensor with its analog output connected to A0. Its raw
+  ADC reading is shown below the voltage, without conversion to amps.
 - A suitable power source and common ground for the Arduino, ESC signal, and
   voltage divider.
 
@@ -41,15 +43,16 @@ board will need firmware and pin-mapping changes before use.
 | Encoder DT | D9 |
 | Encoder push button (SW) | D10 |
 | ESC signal input | D3 |
-| Voltage-divider output | A0 |
+| Voltage-divider output | A1 |
+| ACS712 analog output | A0 |
 | OLED SDA | SDA |
 | OLED SCL | SCL |
 | OLED power | 3.3 V or 5 V, according to the display module |
 | Ground | GND (shared ground) |
 
-Connect the ESC signal ground and voltage-divider ground to the Arduino ground.
-The divider must keep A0 at or below 5 V. Do not connect the battery voltage
-directly to A0.
+Connect the ESC signal ground, voltage-divider ground, and ACS712 ground to the
+Arduino ground. The divider must keep A1 at or below 5 V. Do not connect the
+battery voltage directly to A1.
 
 The displayed cell voltage is an average calculated from the total voltage of a
 3-cell series pack; it does not measure individual cells. Its conversion

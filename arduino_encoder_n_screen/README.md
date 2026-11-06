@@ -26,6 +26,7 @@ The sketch expects the following hardware:
 - Rotary encoder with CLK, DT, and SW pins
 - ESC connected to a PWM signal pin
 - A 4:1 voltage divider with its output connected to A1 and its low side connected to common ground
+- An ACS712 30 A current sensor with its analog output connected to A0; its raw ADC reading is displayed without conversion to amps
 - Common 5V/GND power distribution
 
 ## Pin mapping
@@ -37,12 +38,13 @@ The sketch expects the following hardware:
 | Encoder SW | 10 |
 | ESC signal | 3 |
 | Voltage divider output | A1 |
+| ACS712 analog output | A0 |
 | OLED SDA | SDA |
 | OLED SCL | SCL |
 | OLED GND | GND |
 | OLED VCC | 3.3V or 5V depending on module |
 
-Note: The sketch converts the raw Nano ADC reading directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A1 at or below 5 V; the divider must keep the pin within that limit. If hardware or calibration changes, update the conversion constants in `VoltageMonitor.h`.
+Note: The sketch converts the raw Nano ADC reading on A1 directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A1 at or below 5 V; the divider must keep the pin within that limit. The ACS712 output on A0 is displayed as its raw 10-bit ADC reading; no current conversion or calibration is applied.
 
 On the classic Nano (ATmega328P), encoder CLK and DT inputs use the Port B pin-change interrupt group (PCINT0). The default pins 8 and 9 are supported; other pins fall back to polling. The push button remains polled and debounced in the main loop.
 
