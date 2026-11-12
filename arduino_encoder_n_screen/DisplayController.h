@@ -48,6 +48,15 @@ public:
       warningVisibilityChanged = true;
     }
 
+    if (initialized &&
+        !sleeping &&
+        chargingPower &&
+        now - lastChargingBlinkTime >= CURRENT_BLINK_INTERVAL) {
+      lastChargingBlinkTime = now;
+      batteryBarsVisible = !batteryBarsVisible;
+      warningVisibilityChanged = true;
+    }
+
     if (warningVisibilityChanged) {
       drawIfReady();
     }
@@ -74,6 +83,13 @@ public:
     this->voltageHundredths = voltageHundredths;
     this->batteryBars = batteryBars;
     this->currentMilliamps = currentMilliamps;
+    const bool shouldBlinkCharging =
+      powerWattsTenths <= -CHARGING_POWER_THRESHOLD_TENTHS;
+    if (shouldBlinkCharging != chargingPower) {
+      chargingPower = shouldBlinkCharging;
+      batteryBarsVisible = true;
+      lastChargingBlinkTime = millis();
+    }
     const long currentMagnitude =
       currentMilliamps < 0 ? -currentMilliamps : currentMilliamps;
     const bool shouldBlinkCurrent =
@@ -117,9 +133,9 @@ private:
   static const unsigned long CURRENT_BLINK_INTERVAL = 500;
   static const int VOLTAGE_BLINK_THRESHOLD = 300;
   static const long CURRENT_BLINK_THRESHOLD_MILLIAMPS = 20000;
+  static const long CHARGING_POWER_THRESHOLD_TENTHS = 100;
   static const int16_t VALUE_BAR_X = 2;
   static const int16_t VALUE_BAR_Y = 21;
-  static const int16_t BATTERY_X = 2;
   static const int16_t BATTERY_Y = 54;
 
   Adafruit_SSD1306 &display;
@@ -132,13 +148,16 @@ private:
   long currentMilliamps = 0;
   bool lowVoltage = false;
   bool highCurrent = false;
+  bool chargingPower = false;
   bool voltageVisible = true;
   bool currentVisible = true;
+  bool batteryBarsVisible = true;
   bool initialized = false;
   bool sleeping = false;
   unsigned long lastRecoveryAttempt = 0;
   unsigned long lastVoltageBlinkTime = 0;
   unsigned long lastCurrentBlinkTime = 0;
+  unsigned long lastChargingBlinkTime = 0;
 
   bool initializeDisplay() {
     if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
@@ -273,14 +292,12 @@ private:
     }
 
     char currentText[10];
-    const bool currentNegative = currentMilliamps < 0;
     const long currentMagnitude =
-      currentNegative ? -currentMilliamps : currentMilliamps;
+      currentMilliamps < 0 ? -currentMilliamps : currentMilliamps;
     snprintf(
       currentText,
       sizeof(currentText),
-      "%s%ld.%01ldA",
-      currentNegative ? "-" : "",
+      "%ld.%01ldA",
       currentMagnitude / 1000,
       (currentMagnitude % 1000) / 100
     );
@@ -333,17 +350,24 @@ private:
 
   void drawPower() {
     char powerText[12];
-    const bool powerNegative = powerWattsTenths < 0;
-    const long powerMagnitude =
-      powerNegative ? -powerWattsTenths : powerWattsTenths;
-    snprintf(
-      powerText,
-      sizeof(powerText),
-      "%s%ld.%01ldW",
-      powerNegative ? "-" : "",
-      powerMagnitude / 10,
-      powerMagnitude % 10
-    );
+    const long powerMagnitudeTenths =
+      powerWattsTenths < 0 ? -powerWattsTenths : powerWattsTenths;
+    if (powerMagnitudeTenths > 1000) {
+      snprintf(
+        powerText,
+        sizeof(powerText),
+        "%ldW",
+        powerMagnitudeTenths / 10
+      );
+    } else {
+      snprintf(
+        powerText,
+        sizeof(powerText),
+        "%ld.%01ldW",
+        powerMagnitudeTenths / 10,
+        powerMagnitudeTenths % 10
+      );
+    }
     drawRightAlignedText(powerText, 1, 88);
   }
 
@@ -377,13 +401,18 @@ private:
     const int clampedBars = batteryBars < 0
       ? 0
       : (batteryBars > 5 ? 5 : batteryBars);
+    const int16_t batteryX = (display.width() - 28) / 2;
 
-    display.drawRect(BATTERY_X, BATTERY_Y + 1, 25, 8, SSD1306_WHITE);
-    display.drawRect(BATTERY_X + 25, BATTERY_Y + 3, 3, 4, SSD1306_WHITE);
+    display.drawRect(batteryX, BATTERY_Y + 1, 25, 8, SSD1306_WHITE);
+    display.drawRect(batteryX + 25, BATTERY_Y + 3, 3, 4, SSD1306_WHITE);
+
+    if (!batteryBarsVisible) {
+      return;
+    }
 
     for (int segment = 0; segment < clampedBars; ++segment) {
       display.fillRect(
-        BATTERY_X + 2 + segment * 4,
+        batteryX + 2 + segment * 4,
         BATTERY_Y + 2,
         3,
         4,

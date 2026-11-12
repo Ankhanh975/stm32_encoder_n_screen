@@ -174,7 +174,7 @@ void refreshDisplay() {
   displayController.render(
     value,
     enabled,
-    enabled ? powerWattsTenths : 0,
+    powerWattsTenths,
     voltageMonitor.getVoltageHundredths(),
     voltageMonitor.getBatteryBars(),
     currentMonitor.getCurrentMilliamps()

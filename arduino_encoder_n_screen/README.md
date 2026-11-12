@@ -7,8 +7,10 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 - Rotary encoder-based throttle control from 0 to 100
 - Live power calculated from the ACS712 current reading and measured battery voltage
 - Power is exponentially smoothed with coefficient 0.3 and stored to 0.1 W precision
-- Displays signed current flow in amps
+- Power is displayed with one decimal place up to 100.0 W, then with no decimals
+- Displays current flow as a positive magnitude in amps
 - Blinks the current flow every 500 ms when its magnitude reaches 20 A
+- Blinks the filled battery bars while charging above 10 W
 - Encoder rotation decoded with pin-change interrupts on Nano pins 8 and 9; queued detents are applied before one display refresh
 - Button press toggles the ESC on/off
 - Smooth ESC ramping to avoid abrupt throttle changes; ramp-up above 60% throttle runs at half speed, while ramp-down keeps its normal rate
@@ -66,12 +68,12 @@ Install these libraries in the Arduino IDE or PlatformIO environment:
 2. Power the ESC and display.
 3. Rotate the encoder to adjust the throttle value in 1% steps below 20% and 2% steps from 20% upward.
 4. Press the encoder button to arm/disarm the ESC.
-5. The OLED displays the throttle setting, live power draw, measured voltage per cell, signed current flow in amps, and a battery indicator with one to five filled segments based on estimated charge.
+5. The OLED displays the throttle setting, live power draw, measured voltage per cell, positive current magnitude in amps, and a battery indicator with one to five filled segments based on estimated charge.
 
 ## Notes
 
 - The ESC startup routine intentionally performs a safe arming sequence before normal operation.
-- Live watts are calculated from the ACS712 current reading and measured three-cell pack voltage.
+- Live watts are calculated from the ACS712 current reading and measured three-cell pack voltage; displayed watts are the absolute magnitude. Filled battery bars blink when charging power exceeds 10 W.
 - The throttle is constrained to a range of 0 to 100 and is only sent to the ESC when enabled.
 - Display sleep is enabled after a timeout to reduce burn-in and save power.
 - The code uses `Servo` for the ESC signal and expects the ESC to accept standard PWM input signals.

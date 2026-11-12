@@ -11,7 +11,7 @@ and displays the controller state.
 - Press the encoder button to enable or disable the ESC output.
 - Ramp throttle changes gradually rather than applying them immediately.
 - Show the enabled state, throttle, measured battery voltage per cell, ACS712
-  signed current flow in amps, blinking at 20 A magnitude, smoothed live power, and a battery-level
+  positive current magnitude in amps, blinking at 20 A magnitude, smoothed absolute power, and a battery-level
   indicator on the OLED.
 - Blink the voltage readout below 3.00 V per cell.
 - Turn off the display after 45 seconds of inactivity while the ESC is disabled.
