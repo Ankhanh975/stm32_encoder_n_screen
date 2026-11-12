@@ -11,7 +11,7 @@ and displays the controller state.
 - Press the encoder button to enable or disable the ESC output.
 - Ramp throttle changes gradually rather than applying them immediately.
 - Show the enabled state, throttle, measured battery voltage per cell, ACS712
-  raw ADC reading, live power or "Charging" status, and a battery-level
+  signed current flow in amps, blinking at 20 A magnitude, smoothed live power, and a battery-level
   indicator on the OLED.
 - Blink the voltage readout below 3.00 V per cell.
 - Turn off the display after 45 seconds of inactivity while the ESC is disabled.
@@ -57,7 +57,8 @@ battery voltage directly to A1.
 
 The displayed cell voltage is an average calculated from the total voltage of a
 3-cell series pack; it does not measure individual cells. Live power uses the
-measured three-cell pack voltage and the ACS712 30 A sensitivity of 185 mV/A.
+measured three-cell pack voltage and the ACS712 30 A sensitivity of 66 mV/A
+(typically 64–68 mV/A).
 Its conversion
 constants are in `arduino_encoder_n_screen/VoltageMonitor.h`. Recalibrate them
 if the board, reference voltage, divider, or battery configuration changes.
@@ -81,8 +82,8 @@ The ACS712 reading is exponentially smoothed with a coefficient of 0.3.
    throttle, a brief 1150 µs signal, then minimum throttle again.
 3. Rotate the encoder to set the throttle value.
 4. Press the encoder button to enable the ESC. Press it again to disable it.
-5. The OLED shows the power state, throttle, measured voltage per cell, raw
-   ACS712 reading, live power, and battery indicator.
+5. The OLED shows the power state, throttle, measured voltage per cell, current
+   draw in amps, live power, and battery indicator.
 
 The throttle signal uses 1000–2000 µs pulses. Confirm that these signal limits
 and the arming sequence are appropriate for the specific ESC before connecting

@@ -9,7 +9,7 @@ public:
     : pin(pin) {}
 
   void begin() {
-    filteredRaw = analogRead(pin);
+    filteredRawTenths = analogRead(pin) * RAW_SCALE;
     lastReadTime = millis();
   }
 
@@ -20,40 +20,54 @@ public:
     }
 
     lastReadTime = now;
-    const float sample = analogRead(pin);
-    filteredRaw += FILTER_COEFFICIENT * (sample - filteredRaw);
+    const long sampleRawTenths = analogRead(pin) * RAW_SCALE;
+    filteredRawTenths =
+      (FILTER_REMAINDER * filteredRawTenths +
+       FILTER_NUMERATOR * sampleRawTenths + FILTER_ROUNDING) /
+      FILTER_SCALE;
     return true;
   }
 
-  int getRaw() const {
-    return static_cast<int>(filteredRaw + 0.5f);
+  long getCurrentMilliamps() const {
+    const long rawDifference = filteredRawTenths - ZERO_CURRENT_TENTHS;
+    const long currentMilliamps =
+      rawDifference * ADC_MILLIVOLTS * 100L /
+      (ADC_MAX_READING * ACS712_SENSITIVITY_MILLIVOLTS_PER_AMP);
+    return currentMilliamps;
   }
 
-  float getAmps() const {
-    const float sensorVoltage =
-      (filteredRaw - ZERO_CURRENT_RAW) * ADC_REFERENCE_VOLTS / ADC_MAX_READING;
-    const float current = sensorVoltage / ACS712_SENSITIVITY_VOLTS_PER_AMP;
-    return current > 0.0f ? current : 0.0f;
-  }
-
-  bool isCharging() const {
-    return filteredRaw < ZERO_CURRENT_RAW;
-  }
-
-  float getPowerWatts(float packVoltage) const {
-    return getAmps() * packVoltage;
+  long getPowerWattsTenths(int packVoltageHundredths) {
+    const long instantaneousPowerTenths =
+      getCurrentMilliamps() * packVoltageHundredths / POWER_TENTHS_SCALE;
+    if (!powerInitialized) {
+      filteredPowerTenths = instantaneousPowerTenths;
+      powerInitialized = true;
+    } else {
+      filteredPowerTenths =
+        (FILTER_REMAINDER * filteredPowerTenths +
+         FILTER_NUMERATOR * instantaneousPowerTenths + FILTER_ROUNDING) /
+        FILTER_SCALE;
+    }
+    return filteredPowerTenths;
   }
 
 private:
   static const unsigned long READ_INTERVAL = 150;
-  static constexpr float FILTER_COEFFICIENT = 0.3f;
-  static constexpr float ZERO_CURRENT_RAW = 512.0f;
-  static constexpr float ADC_REFERENCE_VOLTS = 5.0f;
-  static constexpr float ADC_MAX_READING = 1023.0f;
-  static constexpr float ACS712_SENSITIVITY_VOLTS_PER_AMP = 0.185f;
+  static const long FILTER_SCALE = 10;
+  static const long FILTER_NUMERATOR = 3;
+  static const long FILTER_REMAINDER = FILTER_SCALE - FILTER_NUMERATOR;
+  static const long FILTER_ROUNDING = FILTER_SCALE / 2;
+  static const long RAW_SCALE = 10;
+  static const long ZERO_CURRENT_TENTHS = 512 * RAW_SCALE;
+  static const long ADC_MILLIVOLTS = 5000;
+  static const long ADC_MAX_READING = 1023;
+  static const long ACS712_SENSITIVITY_MILLIVOLTS_PER_AMP = 66;
+  static const long POWER_TENTHS_SCALE = 10000;
 
   int pin;
-  float filteredRaw = 0.0f;
+  long filteredRawTenths = 0;
+  long filteredPowerTenths = 0;
+  bool powerInitialized = false;
   unsigned long lastReadTime = 0;
 };
 

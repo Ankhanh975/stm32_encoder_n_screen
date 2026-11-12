@@ -168,18 +168,16 @@ int valueStep(int direction) {
 }
 
 void refreshDisplay() {
+  const long powerWattsTenths = currentMonitor.getPowerWattsTenths(
+    voltageMonitor.getVoltageHundredths() * 3
+  );
   displayController.render(
     value,
     enabled,
-    enabled
-      ? currentMonitor.getPowerWatts(
-          voltageMonitor.getVoltageHundredths() * 3.0f / 100.0f
-        )
-      : 0.0f,
+    enabled ? powerWattsTenths : 0,
     voltageMonitor.getVoltageHundredths(),
     voltageMonitor.getBatteryBars(),
-    currentMonitor.getRaw(),
-    currentMonitor.isCharging()
+    currentMonitor.getCurrentMilliamps()
   );
 }
 

@@ -41,10 +41,10 @@ public:
 
     if (initialized &&
         !sleeping &&
-        highPower &&
-        now - lastPowerBlinkTime >= VOLTAGE_BLINK_INTERVAL) {
-      lastPowerBlinkTime = now;
-      powerVisible = !powerVisible;
+        highCurrent &&
+        now - lastCurrentBlinkTime >= CURRENT_BLINK_INTERVAL) {
+      lastCurrentBlinkTime = now;
+      currentVisible = !currentVisible;
       warningVisibilityChanged = true;
     }
 
@@ -56,11 +56,10 @@ public:
   void render(
     int value,
     bool enabled,
-    float powerWatts,
+    long powerWattsTenths,
     int voltageHundredths,
     int batteryBars,
-    int currentSensorRaw,
-    bool charging
+    long currentMilliamps
   ) {
     const bool shouldBlink = voltageHundredths < VOLTAGE_BLINK_THRESHOLD;
     if (shouldBlink != lowVoltage) {
@@ -69,21 +68,21 @@ public:
       lastVoltageBlinkTime = millis();
     }
 
-    const bool shouldBlinkPower =
-      enabled && powerWatts > HIGH_POWER_BLINK_THRESHOLD_WATTS;
-    if (shouldBlinkPower != highPower) {
-      highPower = shouldBlinkPower;
-      powerVisible = true;
-      lastPowerBlinkTime = millis();
-    }
-
     this->value = value;
     this->enabled = enabled;
-    this->powerWatts = powerWatts;
+    this->powerWattsTenths = powerWattsTenths;
     this->voltageHundredths = voltageHundredths;
     this->batteryBars = batteryBars;
-    this->currentSensorRaw = currentSensorRaw;
-    this->charging = charging;
+    this->currentMilliamps = currentMilliamps;
+    const long currentMagnitude =
+      currentMilliamps < 0 ? -currentMilliamps : currentMilliamps;
+    const bool shouldBlinkCurrent =
+      currentMagnitude >= CURRENT_BLINK_THRESHOLD_MILLIAMPS;
+    if (shouldBlinkCurrent != highCurrent) {
+      highCurrent = shouldBlinkCurrent;
+      currentVisible = true;
+      lastCurrentBlinkTime = millis();
+    }
     drawIfReady();
   }
 
@@ -115,8 +114,9 @@ private:
   static const uint32_t I2C_TIMEOUT_US = 25000;
   static const unsigned long RECOVERY_INTERVAL = 1000;
   static const unsigned long VOLTAGE_BLINK_INTERVAL = 500;
+  static const unsigned long CURRENT_BLINK_INTERVAL = 500;
   static const int VOLTAGE_BLINK_THRESHOLD = 300;
-  static const int HIGH_POWER_BLINK_THRESHOLD_WATTS = 105;
+  static const long CURRENT_BLINK_THRESHOLD_MILLIAMPS = 20000;
   static const int16_t VALUE_BAR_X = 2;
   static const int16_t VALUE_BAR_Y = 21;
   static const int16_t BATTERY_X = 2;
@@ -126,20 +126,19 @@ private:
   TwoWire &wire;
   int value = 14;
   bool enabled = false;
-  float powerWatts = 0.0f;
+  long powerWattsTenths = 0;
   int voltageHundredths = 0;
   int batteryBars = 0;
-  int currentSensorRaw = 0;
-  bool charging = false;
+  long currentMilliamps = 0;
   bool lowVoltage = false;
-  bool highPower = false;
+  bool highCurrent = false;
   bool voltageVisible = true;
-  bool powerVisible = true;
+  bool currentVisible = true;
   bool initialized = false;
   bool sleeping = false;
   unsigned long lastRecoveryAttempt = 0;
   unsigned long lastVoltageBlinkTime = 0;
-  unsigned long lastPowerBlinkTime = 0;
+  unsigned long lastCurrentBlinkTime = 0;
 
   bool initializeDisplay() {
     if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
@@ -228,6 +227,31 @@ private:
     display.print(text);
   }
 
+  void drawRightAlignedText(
+    const char *text,
+    uint8_t textSize,
+    int16_t y
+  ) {
+    int16_t x;
+    int16_t textY;
+    uint16_t textWidth;
+    uint16_t textHeight;
+
+    display.setTextSize(textSize);
+    display.getTextBounds(
+      text,
+      0,
+      y,
+      &x,
+      &textY,
+      &textWidth,
+      &textHeight
+    );
+
+    display.setCursor(display.width() - 2 - textWidth, y);
+    display.print(text);
+  }
+
   void drawFrame() {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
@@ -245,24 +269,27 @@ private:
       voltageHundredths % 100
     );
     if (voltageVisible) {
-      drawCenteredText(voltageText, 1, 68);
+      drawRightAlignedText(voltageText, 1, 68);
     }
 
-    char currentSensorText[6];
+    char currentText[10];
+    const bool currentNegative = currentMilliamps < 0;
+    const long currentMagnitude =
+      currentNegative ? -currentMilliamps : currentMilliamps;
     snprintf(
-      currentSensorText,
-      sizeof(currentSensorText),
-      "%d",
-      currentSensorRaw
+      currentText,
+      sizeof(currentText),
+      "%s%ld.%01ldA",
+      currentNegative ? "-" : "",
+      currentMagnitude / 1000,
+      (currentMagnitude % 1000) / 100
     );
-    drawCenteredText(currentSensorText, 1, 78);
+    if (currentVisible) {
+      drawRightAlignedText(currentText, 1, 78);
+    }
 
     drawBatteryIndicator();
-    if (charging) {
-      drawCenteredText("Charging", 1, 94);
-    } else {
-      drawPower();
-    }
+    drawPower();
 
     display.display();
   }
@@ -305,16 +332,19 @@ private:
   }
 
   void drawPower() {
-    char powerText[8];
+    char powerText[12];
+    const bool powerNegative = powerWattsTenths < 0;
+    const long powerMagnitude =
+      powerNegative ? -powerWattsTenths : powerWattsTenths;
     snprintf(
       powerText,
       sizeof(powerText),
-      "%dW",
-      static_cast<int>(powerWatts + 0.5f)
+      "%s%ld.%01ldW",
+      powerNegative ? "-" : "",
+      powerMagnitude / 10,
+      powerMagnitude % 10
     );
-    if (powerVisible) {
-      drawCenteredText(powerText, 1, 94);
-    }
+    drawRightAlignedText(powerText, 1, 88);
   }
 
   void drawValueBar() {
@@ -348,7 +378,7 @@ private:
       ? 0
       : (batteryBars > 5 ? 5 : batteryBars);
 
-    display.drawRect(BATTERY_X, BATTERY_Y, 25, 10, SSD1306_WHITE);
+    display.drawRect(BATTERY_X, BATTERY_Y + 1, 25, 8, SSD1306_WHITE);
     display.drawRect(BATTERY_X + 25, BATTERY_Y + 3, 3, 4, SSD1306_WHITE);
 
     for (int segment = 0; segment < clampedBars; ++segment) {
@@ -356,7 +386,7 @@ private:
         BATTERY_X + 2 + segment * 4,
         BATTERY_Y + 2,
         3,
-        6,
+        4,
         SSD1306_WHITE
       );
     }

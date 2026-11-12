@@ -6,7 +6,9 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 
 - Rotary encoder-based throttle control from 0 to 100
 - Live power calculated from the ACS712 current reading and measured battery voltage
-- Displays "Charging" when the filtered ACS712 current is negative
+- Power is exponentially smoothed with coefficient 0.3 and stored to 0.1 W precision
+- Displays signed current flow in amps
+- Blinks the current flow every 500 ms when its magnitude reaches 20 A
 - Encoder rotation decoded with pin-change interrupts on Nano pins 8 and 9; queued detents are applied before one display refresh
 - Button press toggles the ESC on/off
 - Smooth ESC ramping to avoid abrupt throttle changes; ramp-up above 60% throttle runs at half speed, while ramp-down keeps its normal rate
@@ -27,7 +29,7 @@ The sketch expects the following hardware:
 - Rotary encoder with CLK, DT, and SW pins
 - ESC connected to a PWM signal pin
 - A 4:1 voltage divider with its output connected to A1 and its low side connected to common ground
-- An ACS712 30 A current sensor with its analog output connected to A0; its raw ADC reading is displayed without conversion to amps
+- An ACS712 30 A current sensor with its analog output connected to A0; its filtered current is displayed in amps
 - Common 5V/GND power distribution
 
 ## Pin mapping
@@ -45,7 +47,7 @@ The sketch expects the following hardware:
 | OLED GND | GND |
 | OLED VCC | 3.3V or 5V depending on module |
 
-Note: The sketch converts the raw Nano ADC reading on A1 directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A1 at or below 5 V; the divider must keep the pin within that limit. The ACS712 output on A0 is displayed as its raw 10-bit ADC reading and exponentially smoothed with a coefficient of 0.3. Live power uses the ACS712 30 A sensitivity of 185 mV/A and the measured three-cell pack voltage.
+Note: The sketch converts the raw Nano ADC reading on A1 directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A1 at or below 5 V; the divider must keep the pin within that limit. The ACS712 output on A0 is exponentially smoothed with a coefficient of 0.3 and converted to amps using 66 mV/A nominal sensitivity (typically 64–68 mV/A). Live power uses the measured three-cell pack voltage.
 
 On the classic Nano (ATmega328P), encoder CLK and DT inputs use the Port B pin-change interrupt group (PCINT0). The default pins 8 and 9 are supported; other pins fall back to polling. The push button remains polled and debounced in the main loop.
 
@@ -64,12 +66,12 @@ Install these libraries in the Arduino IDE or PlatformIO environment:
 2. Power the ESC and display.
 3. Rotate the encoder to adjust the throttle value in 1% steps below 20% and 2% steps from 20% upward.
 4. Press the encoder button to arm/disarm the ESC.
-5. The OLED displays the throttle setting, live power draw, measured voltage per cell, raw current-sensor reading, and a battery indicator with one to five filled segments based on estimated charge.
+5. The OLED displays the throttle setting, live power draw, measured voltage per cell, signed current flow in amps, and a battery indicator with one to five filled segments based on estimated charge.
 
 ## Notes
 
 - The ESC startup routine intentionally performs a safe arming sequence before normal operation.
-- Live watts are calculated from the ACS712 current reading and measured three-cell pack voltage. The display shows "Charging" instead when the filtered current is negative.
+- Live watts are calculated from the ACS712 current reading and measured three-cell pack voltage.
 - The throttle is constrained to a range of 0 to 100 and is only sent to the ESC when enabled.
 - Display sleep is enabled after a timeout to reduce burn-in and save power.
 - The code uses `Servo` for the ESC signal and expects the ESC to accept standard PWM input signals.
@@ -79,7 +81,7 @@ Install these libraries in the Arduino IDE or PlatformIO environment:
 - `stm32_encoder_n_screen.ino` — main application sketch
 - `DisplayController.h` — OLED display initialization and rendering
 - `EncoderController.h` — rotary encoder and button input logic
-- `CurrentMonitor.h` — filtered ACS712 raw reading, current conversion, and live power calculation
+- `CurrentMonitor.h` — filtered ACS712 current conversion and live power calculation
 - `VoltageMonitor.h` — voltage measurement, battery percentage estimation, and battery bar calculation
 
 ## License
