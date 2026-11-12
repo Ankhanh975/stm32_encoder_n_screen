@@ -68,7 +68,8 @@ public:
     long powerWattsTenths,
     int voltageHundredths,
     int batteryBars,
-    int timeToFullMinutes,
+    int batteryPercentage,
+    int batteryPercentageRatePerHour,
     long currentMilliamps
   ) {
     const bool shouldBlink = voltageHundredths < VOLTAGE_BLINK_THRESHOLD;
@@ -83,7 +84,8 @@ public:
     this->powerWattsTenths = powerWattsTenths;
     this->voltageHundredths = voltageHundredths;
     this->batteryBars = batteryBars;
-    this->timeToFullMinutes = timeToFullMinutes;
+    this->batteryPercentage = batteryPercentage;
+    this->batteryPercentageRatePerHour = batteryPercentageRatePerHour;
     this->currentMilliamps = currentMilliamps;
     const bool shouldBlinkCharging =
       powerWattsTenths <= -CHARGING_POWER_THRESHOLD_TENTHS;
@@ -147,7 +149,8 @@ private:
   long powerWattsTenths = 0;
   int voltageHundredths = 0;
   int batteryBars = 0;
-  int timeToFullMinutes = -1;
+  int batteryPercentage = 0;
+  int batteryPercentageRatePerHour = 0;
   long currentMilliamps = 0;
   bool lowVoltage = false;
   bool highCurrent = false;
@@ -252,7 +255,8 @@ private:
   void drawRightAlignedText(
     const char *text,
     uint8_t textSize,
-    int16_t y
+    int16_t y,
+    int16_t rightMargin = 2
   ) {
     int16_t x;
     int16_t textY;
@@ -270,7 +274,7 @@ private:
       &textHeight
     );
 
-    display.setCursor(display.width() - 2 - textWidth, y);
+    display.setCursor(display.width() - rightMargin - textWidth, y);
     display.print(text);
   }
 
@@ -305,12 +309,14 @@ private:
       (currentMagnitude % 1000) / 100
     );
     if (currentVisible) {
-      drawRightAlignedText(currentText, 1, 78);
+      const int16_t currentRightMargin = currentMagnitude < 10000 ? 8 : 2;
+      drawRightAlignedText(currentText, 1, 78, currentRightMargin);
     }
 
     drawBatteryIndicator();
     drawPower();
-    drawTimeToFull();
+    drawBatteryPercentage();
+    drawBatteryPercentageRate();
 
     display.display();
   }
@@ -375,25 +381,20 @@ private:
     drawRightAlignedText(powerText, 1, 88);
   }
 
-  void drawTimeToFull() {
-    if (timeToFullMinutes < 0) {
-      return;
-    }
+  void drawBatteryPercentage() {
+    char percentageText[8];
+    snprintf(percentageText, sizeof(percentageText), "%d%%", batteryPercentage);
+    drawRightAlignedText(percentageText, 1, 98);
+  }
 
-    char timeText[12];
-    if (timeToFullMinutes == 0) {
-      snprintf(timeText, sizeof(timeText), "TFULL");
+  void drawBatteryPercentageRate() {
+    char rateText[8];
+    if (batteryPercentageRatePerHour > 0) {
+      snprintf(rateText, sizeof(rateText), "+%d%%/h", batteryPercentageRatePerHour);
     } else {
-      snprintf(
-        timeText,
-        sizeof(timeText),
-        "T%dh%02d",
-        timeToFullMinutes / 60,
-        timeToFullMinutes % 60
-      );
+      snprintf(rateText, sizeof(rateText), "%d%%/h", batteryPercentageRatePerHour);
     }
-
-    drawRightAlignedText(timeText, 1, 98);
+    drawRightAlignedText(rateText, 1, 108);
   }
 
   void drawValueBar() {

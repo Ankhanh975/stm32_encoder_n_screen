@@ -13,10 +13,8 @@ and displays the controller state.
 - Show the enabled state, throttle, measured battery voltage per cell, ACS712
   absolute current magnitude in amps, blinking at 20 A magnitude, smoothed
   absolute power, and a battery-level indicator on the OLED.
-- While charging (negative measured current), estimate time to full when the
-  charge current is at least 0.5 A and the fan is disabled. The estimate uses
-  the 2500 mAh battery capacity. A series pack retains the capacity of one
-  cell; cells in parallel would increase the configured capacity.
+- Show the estimated battery percentage and its current-based signed rate of
+  change per hour, using the 2500 mAh battery capacity.
 - Blink the voltage readout below 3.00 V per cell.
 - Turn off the display after 45 seconds of inactivity while the ESC is disabled.
 - Retry OLED initialization after an I2C/display connection problem.
@@ -70,7 +68,9 @@ estimation constants are in `arduino_encoder_n_screen/PowerMonitor.h`.
 Recalibrate them if the board, reference voltage, divider, or battery
 configuration changes.
 The two displayed decimal places do not represent 0.01 V measurement accuracy.
-The ACS712 reading is exponentially smoothed with a coefficient of 0.3.
+Power is calculated directly as measured voltage multiplied by measured current;
+the ACS712 reading itself is still exponentially smoothed with a coefficient of
+0.3.
 
 ## Firmware setup
 
@@ -90,7 +90,8 @@ The ACS712 reading is exponentially smoothed with a coefficient of 0.3.
 3. Rotate the encoder to set the throttle value.
 4. Press the encoder button to enable the ESC. Press it again to disable it.
 5. The OLED shows the power state, throttle, measured voltage per cell, current
-   draw in amps, live power, and battery indicator.
+   draw in amps, live power, battery percentage, percentage change rate per
+   hour, and battery indicator.
 
 The throttle signal uses 1000–2000 µs pulses. Confirm that these signal limits
 and the arming sequence are appropriate for the specific ESC before connecting
@@ -108,5 +109,5 @@ replacement for disconnecting battery power.
   filtering.
 - `arduino_encoder_n_screen/VoltageMonitor.h` — voltage conversion and
   filtering.
-- `arduino_encoder_n_screen/PowerMonitor.h` — power filtering, battery-level
-  estimation, and time-to-full calculation.
+- `arduino_encoder_n_screen/PowerMonitor.h` — power calculation, battery-level
+  estimation, and percentage-rate calculation.

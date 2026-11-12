@@ -6,7 +6,7 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 
 - Rotary encoder-based throttle control from 0 to 100
 - Live power calculated from the ACS712 current reading and measured battery voltage
-- Power is exponentially smoothed with coefficient 0.3 and stored to 0.1 W precision
+- Power is calculated directly as voltage multiplied by current and stored to 0.1 W precision
 - Power is displayed with one decimal place up to 100.0 W, then with no decimals
 - Displays current flow as a positive magnitude in amps
 - Blinks the current flow every 500 ms when its magnitude reaches 20 A
@@ -15,6 +15,8 @@ This project is a small Arduino sketch for controlling an electronic speed contr
 - Button press toggles the ESC on/off
 - Smooth ESC ramping to avoid abrupt throttle changes; ramp-up above 60% throttle runs at half speed, while ramp-down keeps its normal rate
 - OLED status display showing the current throttle, enable state, voltage, and a 1–5 segment battery indicator; bar transitions use a symmetric 0.02 V per-cell offset in either direction
+- Battery percentage and current-based signed percentage change rate per hour,
+  using the 2500 mAh battery capacity
 - Average voltage per cell for a 3-cell series battery, displayed with two decimal places
 - Battery voltage text blinks every 500 ms when the per-cell voltage is below 3.00 V
 - Enabled throttle decreases by 2 every half ramp interval when the per-cell voltage falls below 2.70 V
@@ -49,7 +51,7 @@ The sketch expects the following hardware:
 | OLED GND | GND |
 | OLED VCC | 3.3V or 5V depending on module |
 
-Note: The sketch converts the raw Nano ADC reading on A1 directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A1 at or below 5 V; the divider must keep the pin within that limit. The ACS712 output on A0 is exponentially smoothed with a coefficient of 0.3 and converted to amps using 66 mV/A nominal sensitivity (typically 64–68 mV/A). Live power uses the measured three-cell pack voltage.
+Note: The sketch converts the raw Nano ADC reading on A1 directly to calibrated hundredths of a volt per cell, without rounding the pack voltage at intermediate steps. The conversion factor includes the 10-bit ADC, 5 V reference, 4:1 divider, 9.0 V-to-11.19 V calibration, and division across three cells. This is the average voltage of a 3-cell series battery, not an individual cell measurement; measuring each cell separately requires cell-tap connections. The ADC step is about 0.008 V per cell, so two displayed decimals do not imply 0.01 V measurement accuracy. It assumes the source and Nano share a ground. Keep A1 at or below 5 V; the divider must keep the pin within that limit. The ACS712 output on A0 is exponentially smoothed with a coefficient of 0.3 and converted to amps using 66 mV/A nominal sensitivity (typically 64–68 mV/A). Live power is calculated directly as measured voltage multiplied by measured current.
 
 On the classic Nano (ATmega328P), encoder CLK and DT inputs use the Port B pin-change interrupt group (PCINT0). The default pins 8 and 9 are supported; other pins fall back to polling. The push button remains polled and debounced in the main loop.
 

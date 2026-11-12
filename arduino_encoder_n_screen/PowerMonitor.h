@@ -31,7 +31,7 @@ public:
   }
 
   long getPowerWattsTenths() const {
-    return filteredPowerTenths;
+    return powerWattsTenths;
   }
 
   int getBatteryPercentage() const {
@@ -42,72 +42,39 @@ public:
     return batteryBars;
   }
 
-  int getTimeToFullMinutes(bool fanEnabled) const {
-    const long chargeCurrentMilliamps = -currentMonitor.getCurrentMilliamps();
-    if (fanEnabled || chargeCurrentMilliamps < MIN_CHARGE_CURRENT_MILLIAMPS) {
-      return -1;
-    }
-    if (batteryPercentage >= 100) {
-      return 0;
-    }
-
-    const long remainingCapacityMilliampHours =
-      BATTERY_CAPACITY_MILLIAMP_HOURS *
-      (100 - batteryPercentage) / 100;
-    return (remainingCapacityMilliampHours * 60 +
-            chargeCurrentMilliamps - 1) /
-           chargeCurrentMilliamps;
+  int getBatteryPercentageRatePerHour() const {
+    return batteryPercentageRatePerHour;
   }
 
 private:
-  static const long FILTER_SCALE = 10;
-  static const long FILTER_NUMERATOR = 3;
-  static const long FILTER_REMAINDER = FILTER_SCALE - FILTER_NUMERATOR;
-  static const long FILTER_ROUNDING = FILTER_SCALE / 2;
   static const long BATTERY_BAR_THRESHOLD_OFFSET_MILLIVOLTS = 20;
   static const long BATTERY_CAPACITY_MILLIAMP_HOURS = 2500;
-  static const long MIN_CHARGE_CURRENT_MILLIAMPS = 500;
 
   CurrentMonitor &currentMonitor;
   VoltageMonitor &voltageMonitor;
-  long filteredPowerTenths = 0;
-  long lastPowerVoltageTenths = 0;
-  long lastPowerCurrentTenths = 0;
+  long powerWattsTenths = 0;
   int batteryPercentage = 0;
   int batteryBars = 0;
-  bool powerInitialized = false;
+  int batteryPercentageRatePerHour = 0;
 
   void updatePower() {
-    const long currentTenthsAmps = roundMilliampsToTenths(
-      currentMonitor.getCurrentMilliamps()
-    );
+    const long currentMilliamps = currentMonitor.getCurrentMilliamps();
+    const long currentTenthsAmps = roundMilliampsToTenths(currentMilliamps);
     const long packVoltageTenthsVolts =
       (voltageMonitor.getVoltageHundredths() * 3 + 5) / 10;
-    if (powerInitialized &&
-        currentTenthsAmps == lastPowerCurrentTenths &&
-        packVoltageTenthsVolts == lastPowerVoltageTenths) {
-      return;
-    }
+    powerWattsTenths = currentTenthsAmps * packVoltageTenthsVolts / 10;
+    batteryPercentageRatePerHour =
+      calculateBatteryPercentageRatePerHour(currentMilliamps);
+  }
 
-    lastPowerCurrentTenths = currentTenthsAmps;
-    lastPowerVoltageTenths = packVoltageTenthsVolts;
-    if (currentTenthsAmps == 0) {
-      filteredPowerTenths = 0;
-      powerInitialized = true;
-      return;
+  static int calculateBatteryPercentageRatePerHour(long currentMilliamps) {
+    const long rateNumerator = -currentMilliamps * 100;
+    if (rateNumerator < 0) {
+      return -((-rateNumerator + BATTERY_CAPACITY_MILLIAMP_HOURS / 2) /
+        BATTERY_CAPACITY_MILLIAMP_HOURS);
     }
-
-    const long instantaneousPowerTenths =
-      currentTenthsAmps * packVoltageTenthsVolts / 10;
-    if (!powerInitialized) {
-      filteredPowerTenths = instantaneousPowerTenths;
-      powerInitialized = true;
-    } else {
-      filteredPowerTenths =
-        (FILTER_REMAINDER * filteredPowerTenths +
-         FILTER_NUMERATOR * instantaneousPowerTenths + FILTER_ROUNDING) /
-        FILTER_SCALE;
-    }
+    return (rateNumerator + BATTERY_CAPACITY_MILLIAMP_HOURS / 2) /
+      BATTERY_CAPACITY_MILLIAMP_HOURS;
   }
 
   static long roundMilliampsToTenths(long currentMilliamps) {
@@ -121,6 +88,10 @@ private:
     const long cellVoltageMillivolts =
       voltageMonitor.getVoltageMillivolts();
     batteryPercentage = estimateBatteryPercentage(cellVoltageMillivolts);
+    updateBatteryBars(cellVoltageMillivolts);
+  }
+
+  void updateBatteryBars(long cellVoltageMillivolts) {
     const int lowerThresholdBars = estimateBarsAtVoltage(
       cellVoltageMillivolts + BATTERY_BAR_THRESHOLD_OFFSET_MILLIVOLTS
     );

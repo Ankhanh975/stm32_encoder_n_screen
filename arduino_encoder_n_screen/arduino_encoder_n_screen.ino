@@ -176,7 +176,8 @@ void refreshDisplay() {
     powerMonitor.getPowerWattsTenths(),
     voltageMonitor.getVoltageHundredths(),
     powerMonitor.getBatteryBars(),
-    powerMonitor.getTimeToFullMinutes(enabled),
+    powerMonitor.getBatteryPercentage(),
+    powerMonitor.getBatteryPercentageRatePerHour(),
     currentMonitor.getCurrentMilliamps()
   );
 }
