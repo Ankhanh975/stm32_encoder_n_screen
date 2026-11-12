@@ -3,9 +3,9 @@
 #if defined(__AVR_ATmega328P__)
 #include <avr/interrupt.h>
 #endif
+#include "CurrentMonitor.h"
 #include "DisplayController.h"
 #include "EncoderController.h"
-#include "PowerEstimator.h"
 #include "VoltageMonitor.h"
 
 // =========================
@@ -147,7 +147,7 @@ EncoderController encoder(CLK_PIN, DT_PIN, SW_PIN);
 EscController escController(ESC_PIN, MIN_PWM, MAX_PWM);
 DisplayController displayController(display, Wire);
 VoltageMonitor voltageMonitor(A1);
-PowerEstimator powerEstimator;
+CurrentMonitor currentMonitor(CURRENT_SENSOR_PIN);
 
 #if defined(__AVR_ATmega328P__)
 ISR(PCINT0_vect) {
@@ -167,19 +167,19 @@ int valueStep(int direction) {
   return value < 20 || (direction < 0 && value == 20) ? 1 : 2;
 }
 
-int readCurrentSensorRaw() {
-  analogRead(CURRENT_SENSOR_PIN);
-  return analogRead(CURRENT_SENSOR_PIN);
-}
-
 void refreshDisplay() {
   displayController.render(
     value,
     enabled,
-    enabled ? powerEstimator.getPowerWatts(value) : 0.0f,
+    enabled
+      ? currentMonitor.getPowerWatts(
+          voltageMonitor.getVoltageHundredths() * 3.0f / 100.0f
+        )
+      : 0.0f,
     voltageMonitor.getVoltageHundredths(),
     voltageMonitor.getBatteryBars(),
-    readCurrentSensorRaw()
+    currentMonitor.getRaw(),
+    currentMonitor.isCharging()
   );
 }
 
@@ -209,9 +209,8 @@ void setup() {
 
   displayController.begin();
 
-  pinMode(CURRENT_SENSOR_PIN, INPUT);
   voltageMonitor.begin();
-  powerEstimator.begin();
+  currentMonitor.begin();
   refreshDisplay();
   pinMode(1, INPUT);
   lastInputTime = millis();
@@ -254,6 +253,10 @@ void loop() {
   displayController.update();
 
   if (voltageMonitor.update() && !displayAsleep) {
+    refreshNeeded = true;
+  }
+
+  if (currentMonitor.update() && !displayAsleep) {
     refreshNeeded = true;
   }
 

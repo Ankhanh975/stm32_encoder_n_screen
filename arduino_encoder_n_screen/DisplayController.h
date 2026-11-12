@@ -56,10 +56,11 @@ public:
   void render(
     int value,
     bool enabled,
-    float estimatedPowerWatts,
+    float powerWatts,
     int voltageHundredths,
     int batteryBars,
-    int currentSensorRaw
+    int currentSensorRaw,
+    bool charging
   ) {
     const bool shouldBlink = voltageHundredths < VOLTAGE_BLINK_THRESHOLD;
     if (shouldBlink != lowVoltage) {
@@ -69,7 +70,7 @@ public:
     }
 
     const bool shouldBlinkPower =
-      enabled && estimatedPowerWatts > HIGH_POWER_BLINK_THRESHOLD_WATTS;
+      enabled && powerWatts > HIGH_POWER_BLINK_THRESHOLD_WATTS;
     if (shouldBlinkPower != highPower) {
       highPower = shouldBlinkPower;
       powerVisible = true;
@@ -78,10 +79,11 @@ public:
 
     this->value = value;
     this->enabled = enabled;
-    this->estimatedPowerWatts = estimatedPowerWatts;
+    this->powerWatts = powerWatts;
     this->voltageHundredths = voltageHundredths;
     this->batteryBars = batteryBars;
     this->currentSensorRaw = currentSensorRaw;
+    this->charging = charging;
     drawIfReady();
   }
 
@@ -124,10 +126,11 @@ private:
   TwoWire &wire;
   int value = 14;
   bool enabled = false;
-  float estimatedPowerWatts = 0.0f;
+  float powerWatts = 0.0f;
   int voltageHundredths = 0;
   int batteryBars = 0;
   int currentSensorRaw = 0;
+  bool charging = false;
   bool lowVoltage = false;
   bool highPower = false;
   bool voltageVisible = true;
@@ -255,7 +258,11 @@ private:
     drawCenteredText(currentSensorText, 1, 78);
 
     drawBatteryIndicator();
-    drawEstimatedPower();
+    if (charging) {
+      drawCenteredText("Charging", 1, 94);
+    } else {
+      drawPower();
+    }
 
     display.display();
   }
@@ -297,13 +304,13 @@ private:
     display.print("%");
   }
 
-  void drawEstimatedPower() {
+  void drawPower() {
     char powerText[8];
     snprintf(
       powerText,
       sizeof(powerText),
       "%dW",
-      static_cast<int>(estimatedPowerWatts + 0.5f)
+      static_cast<int>(powerWatts + 0.5f)
     );
     if (powerVisible) {
       drawCenteredText(powerText, 1, 94);
