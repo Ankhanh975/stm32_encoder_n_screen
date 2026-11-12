@@ -11,8 +11,12 @@ and displays the controller state.
 - Press the encoder button to enable or disable the ESC output.
 - Ramp throttle changes gradually rather than applying them immediately.
 - Show the enabled state, throttle, measured battery voltage per cell, ACS712
-  positive current magnitude in amps, blinking at 20 A magnitude, smoothed absolute power, and a battery-level
-  indicator on the OLED.
+  absolute current magnitude in amps, blinking at 20 A magnitude, smoothed
+  absolute power, and a battery-level indicator on the OLED.
+- While charging (negative measured current), estimate time to full when the
+  charge current is at least 0.5 A and the fan is disabled. The estimate uses
+  the 2500 mAh battery capacity. A series pack retains the capacity of one
+  cell; cells in parallel would increase the configured capacity.
 - Blink the voltage readout below 3.00 V per cell.
 - Turn off the display after 45 seconds of inactivity while the ESC is disabled.
 - Retry OLED initialization after an I2C/display connection problem.
@@ -28,7 +32,8 @@ ATmega328P. It also expects:
 - A battery voltage divider connected to analog input A1. The current voltage
   conversion is calibrated for a 4:1 divider and a 3-cell battery pack.
 - An ACS712 30 A current sensor with its analog output connected to A0. Its raw
-  ADC reading is shown below the voltage, without conversion to amps.
+  reading is converted to an absolute current magnitude in amps and shown below
+  the voltage.
 - A suitable power source and common ground for the Arduino, ESC signal, and
   voltage divider.
 
@@ -40,9 +45,9 @@ board will need firmware and pin-mapping changes before use.
 
 | Component | Arduino Nano |
 | --- | --- |
-| Encoder CLK | D8 |
-| Encoder DT | D9 |
-| Encoder push button (SW) | D10 |
+| Encoder CLK | D10 |
+| Encoder DT | D11 |
+| Encoder push button (SW) | D9 |
 | ESC signal input | D3 |
 | Voltage-divider output | A1 |
 | ACS712 analog output | A0 |
@@ -60,8 +65,10 @@ The displayed cell voltage is an average calculated from the total voltage of a
 measured three-cell pack voltage and the ACS712 30 A sensitivity of 66 mV/A
 (typically 64–68 mV/A).
 Its conversion
-constants are in `arduino_encoder_n_screen/VoltageMonitor.h`. Recalibrate them
-if the board, reference voltage, divider, or battery configuration changes.
+constants are in `arduino_encoder_n_screen/VoltageMonitor.h`; power and battery
+estimation constants are in `arduino_encoder_n_screen/PowerMonitor.h`.
+Recalibrate them if the board, reference voltage, divider, or battery
+configuration changes.
 The two displayed decimal places do not represent 0.01 V measurement accuracy.
 The ACS712 reading is exponentially smoothed with a coefficient of 0.3.
 
@@ -97,5 +104,9 @@ replacement for disconnecting battery power.
 - `arduino_encoder_n_screen/DisplayController.h` — OLED rendering and I2C
   recovery.
 - `arduino_encoder_n_screen/EncoderController.h` — encoder and button input.
-- `arduino_encoder_n_screen/VoltageMonitor.h` — voltage conversion, filtering,
-  and battery-level estimation.
+- `arduino_encoder_n_screen/CurrentMonitor.h` — ACS712 current conversion and
+  filtering.
+- `arduino_encoder_n_screen/VoltageMonitor.h` — voltage conversion and
+  filtering.
+- `arduino_encoder_n_screen/PowerMonitor.h` — power filtering, battery-level
+  estimation, and time-to-full calculation.

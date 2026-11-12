@@ -36,21 +36,6 @@ public:
     return currentMilliamps;
   }
 
-  long getPowerWattsTenths(int packVoltageHundredths) {
-    const long instantaneousPowerTenths =
-      getCurrentMilliamps() * packVoltageHundredths / POWER_TENTHS_SCALE;
-    if (!powerInitialized) {
-      filteredPowerTenths = instantaneousPowerTenths;
-      powerInitialized = true;
-    } else {
-      filteredPowerTenths =
-        (FILTER_REMAINDER * filteredPowerTenths +
-         FILTER_NUMERATOR * instantaneousPowerTenths + FILTER_ROUNDING) /
-        FILTER_SCALE;
-    }
-    return filteredPowerTenths;
-  }
-
 private:
   static const unsigned long READ_INTERVAL = 150;
   static const long FILTER_SCALE = 10;
@@ -62,12 +47,9 @@ private:
   static const long ADC_MILLIVOLTS = 5000;
   static const long ADC_MAX_READING = 1023;
   static const long ACS712_SENSITIVITY_MILLIVOLTS_PER_AMP = 66;
-  static const long POWER_TENTHS_SCALE = 10000;
 
   int pin;
   long filteredRawTenths = 0;
-  long filteredPowerTenths = 0;
-  bool powerInitialized = false;
   unsigned long lastReadTime = 0;
 };
 

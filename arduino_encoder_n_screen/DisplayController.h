@@ -68,6 +68,7 @@ public:
     long powerWattsTenths,
     int voltageHundredths,
     int batteryBars,
+    int timeToFullMinutes,
     long currentMilliamps
   ) {
     const bool shouldBlink = voltageHundredths < VOLTAGE_BLINK_THRESHOLD;
@@ -82,6 +83,7 @@ public:
     this->powerWattsTenths = powerWattsTenths;
     this->voltageHundredths = voltageHundredths;
     this->batteryBars = batteryBars;
+    this->timeToFullMinutes = timeToFullMinutes;
     this->currentMilliamps = currentMilliamps;
     const bool shouldBlinkCharging =
       powerWattsTenths <= -CHARGING_POWER_THRESHOLD_TENTHS;
@@ -145,6 +147,7 @@ private:
   long powerWattsTenths = 0;
   int voltageHundredths = 0;
   int batteryBars = 0;
+  int timeToFullMinutes = -1;
   long currentMilliamps = 0;
   bool lowVoltage = false;
   bool highCurrent = false;
@@ -307,6 +310,7 @@ private:
 
     drawBatteryIndicator();
     drawPower();
+    drawTimeToFull();
 
     display.display();
   }
@@ -371,6 +375,27 @@ private:
     drawRightAlignedText(powerText, 1, 88);
   }
 
+  void drawTimeToFull() {
+    if (timeToFullMinutes < 0) {
+      return;
+    }
+
+    char timeText[12];
+    if (timeToFullMinutes == 0) {
+      snprintf(timeText, sizeof(timeText), "TFULL");
+    } else {
+      snprintf(
+        timeText,
+        sizeof(timeText),
+        "T%dh%02d",
+        timeToFullMinutes / 60,
+        timeToFullMinutes % 60
+      );
+    }
+
+    drawRightAlignedText(timeText, 1, 98);
+  }
+
   void drawValueBar() {
     const int clampedValue = value < 0
       ? 0
@@ -406,11 +431,13 @@ private:
     display.drawRect(batteryX, BATTERY_Y + 1, 25, 8, SSD1306_WHITE);
     display.drawRect(batteryX + 25, BATTERY_Y + 3, 3, 4, SSD1306_WHITE);
 
-    if (!batteryBarsVisible) {
-      return;
-    }
-
     for (int segment = 0; segment < clampedBars; ++segment) {
+      if (chargingPower &&
+          segment == clampedBars - 1 &&
+          !batteryBarsVisible) {
+        continue;
+      }
+
       display.fillRect(
         batteryX + 2 + segment * 4,
         BATTERY_Y + 2,

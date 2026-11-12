@@ -6,6 +6,7 @@
 #include "CurrentMonitor.h"
 #include "DisplayController.h"
 #include "EncoderController.h"
+#include "PowerMonitor.h"
 #include "VoltageMonitor.h"
 
 // =========================
@@ -148,6 +149,7 @@ EscController escController(ESC_PIN, MIN_PWM, MAX_PWM);
 DisplayController displayController(display, Wire);
 VoltageMonitor voltageMonitor(A1);
 CurrentMonitor currentMonitor(CURRENT_SENSOR_PIN);
+PowerMonitor powerMonitor(currentMonitor, voltageMonitor);
 
 #if defined(__AVR_ATmega328P__)
 ISR(PCINT0_vect) {
@@ -168,15 +170,13 @@ int valueStep(int direction) {
 }
 
 void refreshDisplay() {
-  const long powerWattsTenths = currentMonitor.getPowerWattsTenths(
-    voltageMonitor.getVoltageHundredths() * 3
-  );
   displayController.render(
     value,
     enabled,
-    powerWattsTenths,
+    powerMonitor.getPowerWattsTenths(),
     voltageMonitor.getVoltageHundredths(),
-    voltageMonitor.getBatteryBars(),
+    powerMonitor.getBatteryBars(),
+    powerMonitor.getTimeToFullMinutes(enabled),
     currentMonitor.getCurrentMilliamps()
   );
 }
@@ -209,6 +209,7 @@ void setup() {
 
   voltageMonitor.begin();
   currentMonitor.begin();
+  powerMonitor.begin();
   refreshDisplay();
   pinMode(1, INPUT);
   lastInputTime = millis();
@@ -250,13 +251,17 @@ void loop() {
 
   displayController.update();
 
-  if (voltageMonitor.update() && !displayAsleep) {
+  const bool voltageUpdated = voltageMonitor.update();
+  if (voltageUpdated && !displayAsleep) {
     refreshNeeded = true;
   }
 
-  if (currentMonitor.update() && !displayAsleep) {
+  const bool currentUpdated = currentMonitor.update();
+  if (currentUpdated && !displayAsleep) {
     refreshNeeded = true;
   }
+
+  powerMonitor.update(voltageUpdated, currentUpdated);
 
   const bool throttleReduced = escController.update(
     voltageMonitor.getVoltageHundredths() <
